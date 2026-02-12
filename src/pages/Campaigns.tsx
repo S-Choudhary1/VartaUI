@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Upload, FileSpreadsheet, Calendar, Send, AlertCircle, CheckCircle, Clock, BarChart2, FileText } from 'lucide-react';
-import { createCampaign, getAllCampaigns } from '../services/campaignService';
+import { createCampaign, getAllCampaigns, exportCampaignResponses } from '../services/campaignService';
 import { getTemplates } from '../services/templateService';
 import type { Template, Campaign } from '../types';
 import { useAuth } from '../context/AuthContext';
@@ -14,6 +14,7 @@ const Campaigns = () => {
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [loading, setLoading] = useState(false);
   const [loadingList, setLoadingList] = useState(true);
+  const [exportingId, setExportingId] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
   const [activeTab, setActiveTab] = useState<'create' | 'list'>('create');
@@ -98,6 +99,27 @@ const Campaigns = () => {
       setErrorMsg('Failed to create campaign. Check your inputs.');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleExport = async (campaignId: string) => {
+    setErrorMsg('');
+    setExportingId(campaignId);
+    try {
+      const { blob, filename } = await exportCampaignResponses(campaignId);
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error('Failed to export responses', error);
+      setErrorMsg('Failed to export campaign responses.');
+    } finally {
+      setExportingId(null);
     }
   };
 
@@ -270,6 +292,12 @@ const Campaigns = () => {
         </Card>
       ) : (
         <Card>
+           {errorMsg && (
+             <div className="m-6 mb-0 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg flex items-center gap-2">
+               <AlertCircle className="w-5 h-5" />
+               {errorMsg}
+             </div>
+           )}
            {loadingList ? (
              <div className="p-12 text-center text-gray-500">
                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-whatsapp-teal mx-auto mb-4"></div>
@@ -299,6 +327,7 @@ const Campaigns = () => {
                      <th className="px-6 py-4 text-xs font-semibold uppercase tracking-wider">Scheduled At</th>
                      <th className="px-6 py-4 text-xs font-semibold uppercase tracking-wider">Progress</th>
                      <th className="px-6 py-4 text-xs font-semibold uppercase tracking-wider">Created At</th>
+                     <th className="px-6 py-4 text-xs font-semibold uppercase tracking-wider text-right">Responses CSV</th>
                    </tr>
                  </thead>
                  <tbody className="divide-y divide-gray-100">
@@ -340,6 +369,16 @@ const Campaigns = () => {
                        </td>
                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                          {campaign.createdAt ? new Date(campaign.createdAt).toLocaleDateString() : '-'}
+                       </td>
+                       <td className="px-6 py-4 whitespace-nowrap text-right">
+                         <Button
+                           variant="outline"
+                           size="sm"
+                           onClick={() => handleExport(campaign.id)}
+                           disabled={exportingId === campaign.id}
+                         >
+                           {exportingId === campaign.id ? 'Exporting...' : 'Download CSV'}
+                         </Button>
                        </td>
                      </tr>
                    ))}

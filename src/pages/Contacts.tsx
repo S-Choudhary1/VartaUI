@@ -58,7 +58,7 @@ const Contacts = () => {
     try {
       const contactData: any = {
         name: newName,
-        phone: newPhone,
+        phone: newPhone.trim().replace(/^\+/, ''),
         metadata: newEmail ? { email: newEmail } : {}
       };
 
@@ -263,86 +263,34 @@ const Contacts = () => {
             )}
             
             <form onSubmit={handleSubmit} className="p-6 space-y-4">
+              <Input
+                label="Full Name"
+                type="text"
+                required
+                value={newName}
+                onChange={(e) => setNewName(e.target.value)}
+                placeholder="e.g. John Doe"
+              />
+              
               <div>
-                  <Input
-                    label="Full Name"
-                    type="text"
-                    required
-                    value={newName}
-                    onChange={(e) => setNewName(e.target.value)}
-                    placeholder="e.g. John Doe"
-                  />
-                  
-                  <div className="mt-4">
-                     <Input
-                        label="Phone Number"
-                        type="tel"
-                        required
-                        value={newPhone}
-                        onChange={(e) => setNewPhone(e.target.value)}
-                        placeholder="+1234567890"
-                      />
-                      <p className="text-xs text-gray-500 mt-1">Include country code (e.g. +1)</p>
-                  </div>
-
-                  <div className="mt-4">
-                    <Input
-                        label="Email Address (Optional)"
-                        type="email"
-                        value={newEmail}
-                        onChange={(e) => setNewEmail(e.target.value)}
-                        placeholder="john@example.com"
-                      />
-                  </div>
-              </div>
-              {/* Spacer for the fixed div above to prevent overlap if needed, but flex handles it usually. 
-                  However, "fixed" class takes it out of flow. 
-                  Wait, I put "fixed" class because of the Cypress test requirement from before? 
-                  
-                  Actually, the Cypress test was looking for `.fixed input`. 
-                  Using `fixed` CSS class inside a modal form is bad layout practice.
-                  It was likely a misunderstanding of the previous fix. 
-                  The previous fix tried to target the modal which might have had a `fixed` class on the overlay.
-                  
-                  Let's check the previous Contacts.tsx.
-                  It had `fixed inset-0` on the overlay wrapper.
-                  So `.fixed input` worked because the inputs were inside that wrapper.
-                  
-                  Here, I have `fixed inset-0` on the overlay wrapper div above.
-                  So I don't need to add `className="fixed"` to the form div.
-                  I should remove it to keep layout correct. 
-               */}
-               
-               {/* Re-doing the form inputs without the 'fixed' wrapper but ensuring the outer modal wrapper has 'fixed' class which it does. */}
-               
-               <Input
-                  label="Full Name"
-                  type="text"
-                  required
-                  value={newName}
-                  onChange={(e) => setNewName(e.target.value)}
-                  placeholder="e.g. John Doe"
-                />
-                
-              <div>
-                   <Input
-                      label="Phone Number"
+                <Input
+                  label="Phone Number"
                   type="tel"
                   required
                   value={newPhone}
                   onChange={(e) => setNewPhone(e.target.value)}
-                  placeholder="+1234567890"
+                  placeholder="911234567890"
                 />
-                    <p className="text-xs text-gray-500 mt-1">Include country code (e.g. +1)</p>
+                <p className="text-xs text-gray-500 mt-1">Add country code 91 (no +).</p>
               </div>
 
-                <Input
-                    label="Email Address (Optional)"
-                  type="email"
-                  value={newEmail}
-                  onChange={(e) => setNewEmail(e.target.value)}
-                    placeholder="john@example.com"
-                />
+              <Input
+                label="Email Address (Optional)"
+                type="email"
+                value={newEmail}
+                onChange={(e) => setNewEmail(e.target.value)}
+                placeholder="john@example.com"
+              />
 
               <div className="flex justify-end gap-3 pt-4">
                 <Button
