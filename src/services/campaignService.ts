@@ -26,3 +26,21 @@ export const getAllCampaigns = async (): Promise<Campaign[]> => {
   return response.data;
 };
 
+const getFilenameFromContentDisposition = (contentDisposition?: string): string => {
+  if (!contentDisposition) return 'campaign-responses.csv';
+  const match = contentDisposition.match(/filename="?([^"]+)"?/i);
+  return match?.[1] || 'campaign-responses.csv';
+};
+
+export const exportCampaignResponsesCsv = async (id: string): Promise<{ blob: Blob; filename: string }> => {
+  const response = await api.get<Blob>(`/campaigns/${id}/responses/export`, {
+    responseType: 'blob',
+    headers: {
+      Accept: 'text/plain',
+    },
+  });
+
+  const filename = getFilenameFromContentDisposition(response.headers['content-disposition']);
+  return { blob: response.data, filename };
+};
+

@@ -282,7 +282,7 @@ const Contacts = () => {
                         onChange={(e) => setNewPhone(e.target.value)}
                         placeholder="+1234567890"
                       />
-                      <p className="text-xs text-gray-500 mt-1">Include country code (e.g. +1)</p>
+                      <p className="text-xs text-gray-500 mt-1">Add country code 91</p>
                   </div>
 
                   <div className="mt-4">
@@ -331,9 +331,9 @@ const Contacts = () => {
                   required
                   value={newPhone}
                   onChange={(e) => setNewPhone(e.target.value)}
-                  placeholder="+1234567890"
+                  placeholder="911234567890"
                 />
-                    <p className="text-xs text-gray-500 mt-1">Include country code (e.g. +1)</p>
+                    <p className="text-xs text-gray-500 mt-1">Add country code 91</p>
               </div>
 
                 <Input

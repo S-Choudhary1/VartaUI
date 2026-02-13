@@ -36,7 +36,7 @@ const Login = () => {
             <div className="w-10 h-10 rounded-xl bg-whatsapp-teal flex items-center justify-center text-white font-bold text-xl shadow-lg">
               V
             </div>
-            <span className="text-2xl font-bold text-white tracking-tight">VartaAI</span>
+            <span className="text-2xl font-bold text-whatsapp-dark bg-white/90 px-2.5 py-1 rounded-lg tracking-tight">VartaAI</span>
           </div>
           <h1 className="text-5xl font-bold text-white leading-tight mb-6">
             Supercharge your <br />

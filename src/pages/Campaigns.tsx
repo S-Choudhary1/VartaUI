@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Upload, FileSpreadsheet, Calendar, Send, AlertCircle, CheckCircle, Clock, BarChart2, FileText } from 'lucide-react';
-import { createCampaign, getAllCampaigns } from '../services/campaignService';
+import { Upload, FileSpreadsheet, Calendar, Send, AlertCircle, CheckCircle, Clock, BarChart2, FileText, Download } from 'lucide-react';
+import { createCampaign, getAllCampaigns, exportCampaignResponsesCsv } from '../services/campaignService';
 import { getTemplates } from '../services/templateService';
 import type { Template, Campaign } from '../types';
 import { useAuth } from '../context/AuthContext';
@@ -17,6 +17,7 @@ const Campaigns = () => {
   const [successMsg, setSuccessMsg] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
   const [activeTab, setActiveTab] = useState<'create' | 'list'>('create');
+  const [exportingCampaignId, setExportingCampaignId] = useState<string | null>(null);
 
   // Form State
   const [campaignName, setCampaignName] = useState('');
@@ -98,6 +99,29 @@ const Campaigns = () => {
       setErrorMsg('Failed to create campaign. Check your inputs.');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleExportResponses = async (campaign: Campaign) => {
+    setErrorMsg('');
+    setSuccessMsg('');
+    setExportingCampaignId(campaign.id);
+    try {
+      const { blob, filename } = await exportCampaignResponsesCsv(campaign.id);
+      const url = window.URL.createObjectURL(blob);
+      const anchor = document.createElement('a');
+      anchor.href = url;
+      anchor.download = filename || `campaign-${campaign.id}-responses.csv`;
+      document.body.appendChild(anchor);
+      anchor.click();
+      document.body.removeChild(anchor);
+      window.URL.revokeObjectURL(url);
+      setSuccessMsg('Campaign responses export downloaded successfully.');
+    } catch (error) {
+      console.error('Failed to export campaign responses', error);
+      setErrorMsg('Failed to export campaign responses. Please try again.');
+    } finally {
+      setExportingCampaignId(null);
     }
   };
 
@@ -270,6 +294,18 @@ const Campaigns = () => {
         </Card>
       ) : (
         <Card>
+          {successMsg && (
+            <div className="mx-6 mt-6 bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-lg flex items-center gap-2">
+              <CheckCircle className="w-5 h-5" />
+              {successMsg}
+            </div>
+          )}
+          {errorMsg && (
+            <div className="mx-6 mt-6 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg flex items-center gap-2">
+              <AlertCircle className="w-5 h-5" />
+              {errorMsg}
+            </div>
+          )}
            {loadingList ? (
              <div className="p-12 text-center text-gray-500">
                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-whatsapp-teal mx-auto mb-4"></div>
@@ -299,6 +335,7 @@ const Campaigns = () => {
                      <th className="px-6 py-4 text-xs font-semibold uppercase tracking-wider">Scheduled At</th>
                      <th className="px-6 py-4 text-xs font-semibold uppercase tracking-wider">Progress</th>
                      <th className="px-6 py-4 text-xs font-semibold uppercase tracking-wider">Created At</th>
+                     <th className="px-6 py-4 text-xs font-semibold uppercase tracking-wider text-right">Export</th>
                    </tr>
                  </thead>
                  <tbody className="divide-y divide-gray-100">
@@ -340,6 +377,18 @@ const Campaigns = () => {
                        </td>
                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                          {campaign.createdAt ? new Date(campaign.createdAt).toLocaleDateString() : '-'}
+                       </td>
+                       <td className="px-6 py-4 whitespace-nowrap text-right">
+                         <Button
+                           variant="outline"
+                           size="sm"
+                           onClick={() => handleExportResponses(campaign)}
+                           disabled={exportingCampaignId === campaign.id}
+                           className="inline-flex items-center gap-1.5"
+                         >
+                           <Download className="w-3.5 h-3.5" />
+                           {exportingCampaignId === campaign.id ? 'Exporting...' : 'CSV'}
+                         </Button>
                        </td>
                      </tr>
                    ))}
