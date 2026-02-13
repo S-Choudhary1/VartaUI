@@ -46,6 +46,7 @@ export interface TemplateRequest {
   name: string;
   content: Record<string, any>;
   type: string; // Backend accepts generic string, usually TEXT, MEDIA, INTERACTIVE
+  languageCode?: string;
   provider_template_id?: string; // Match @JsonProperty("provider_template_id")
 }
 

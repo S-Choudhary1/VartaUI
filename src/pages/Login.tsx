@@ -60,10 +60,11 @@ const Login = () => {
       <div className="w-full lg:w-1/2 flex items-center justify-center p-8 sm:p-12 lg:p-24 bg-gray-50/30">
         <div className="w-full max-w-sm space-y-8">
           <div className="text-center lg:text-left">
-            <div className="lg:hidden flex justify-center mb-6">
-               <div className="w-12 h-12 rounded-xl bg-whatsapp-teal flex items-center justify-center text-white font-bold text-2xl shadow-lg">
+            <div className="lg:hidden flex flex-col items-center justify-center mb-6 gap-2">
+              <div className="w-12 h-12 rounded-xl bg-whatsapp-teal flex items-center justify-center text-white font-bold text-2xl shadow-lg">
                 V
               </div>
+              <span className="text-lg font-bold text-gray-900 tracking-tight">VartaAI</span>
             </div>
             <h2 className="text-3xl font-bold text-gray-900 tracking-tight">Welcome Back</h2>
             <p className="text-gray-500 mt-2">Enter your details to access your dashboard.</p>

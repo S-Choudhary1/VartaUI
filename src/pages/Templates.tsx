@@ -15,7 +15,7 @@ const Templates = () => {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [name, setName] = useState('');
   const [content, setContent] = useState('');
-  const [language, setLanguage] = useState('en');
+  const [language, setLanguage] = useState<'en' | 'hi'>('en');
   const [type, setType] = useState<'TEXT' | 'MEDIA' | 'INTERACTIVE'>('TEXT');
 
   const fetchTemplates = async () => {
@@ -40,6 +40,7 @@ const Templates = () => {
       setName(template.name);
       setContent(template.content.body || JSON.stringify(template.content));
       setType(template.type);
+      setLanguage((template.language as 'en' | 'hi') || 'en');
     } else {
       setEditingId(null);
       setName('');
@@ -57,6 +58,7 @@ const Templates = () => {
         name,
         content: { body: content },
         type: type, // Use the selected type from state
+        languageCode: language,
       };
 
       if (editingId) {
@@ -201,7 +203,7 @@ const Templates = () => {
                  </p>
               </div>
 
-              <div className="grid grid-cols-1 gap-4">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1.5">Type</label>
                    <div className="relative">
@@ -218,6 +220,22 @@ const Templates = () => {
                         <svg className="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path></svg>
                     </div>
                 </div>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1.5">Language</label>
+                  <div className="relative">
+                    <select
+                      value={language}
+                      onChange={(e) => setLanguage(e.target.value as 'en' | 'hi')}
+                      className="w-full h-10 px-3 py-2 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-whatsapp-teal focus:border-transparent appearance-none"
+                    >
+                      <option value="en">English</option>
+                      <option value="hi">Hindi</option>
+                    </select>
+                    <div className="absolute inset-y-0 right-0 flex items-center px-2 pointer-events-none">
+                      <svg className="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path></svg>
+                    </div>
+                  </div>
                 </div>
               </div>
 
