@@ -69,8 +69,8 @@ const QuickSend = () => {
     setVariables({});
     
     const tmpl = templates.find(t => t.id === tmplId);
-    if (tmpl && tmpl.content && typeof tmpl.content.body === 'string') {
-      const matches = tmpl.content.body.match(/{{(\d+)}}/g);
+    if (tmpl && tmpl.content && typeof tmpl.content === 'string') {
+      const matches = tmpl.content.match(/{{(\d+)}}/g);
       if (matches) {
         const initialVars: Record<string, string> = {};
         matches.forEach(m => {
@@ -110,7 +110,12 @@ const QuickSend = () => {
       await loadHistory(to);
     } catch (err) {
       console.error(err);
-      setErrorMsg('Failed to send message.');
+        const apiMsg =
+          err.response?.data?.message ||
+          err.response?.data?.error ||
+          err.message ||
+          "Failed to send message..";
+      setErrorMsg(apiMsg);
     } finally {
       setLoading(false);
     }

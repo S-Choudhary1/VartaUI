@@ -96,7 +96,12 @@ const Campaigns = () => {
       
     } catch (err) {
       console.error(err);
-      setErrorMsg('Failed to create campaign. Check your inputs.');
+        const apiMsg =
+          err.response?.data?.message ||
+          err.response?.data?.error ||
+          err.message ||
+          "Failed to create campaign.";
+      setErrorMsg(apiMsg);
     } finally {
       setLoading(false);
     }

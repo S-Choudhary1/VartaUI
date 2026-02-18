@@ -44,7 +44,7 @@ export type Contact = ContactResponse;
 
 export interface TemplateRequest {
   name: string;
-  content: Record<string, any>;
+  content: string;
   type: string; // Backend accepts generic string, usually TEXT, MEDIA, INTERACTIVE
   languageCode?: 'en' | 'hi';
   provider_template_id?: string; // Match @JsonProperty("provider_template_id")
@@ -53,7 +53,7 @@ export interface TemplateRequest {
 export interface Template {
   id: string;
   name: string;
-  content: Record<string, any>;
+  content: string;
   type: string;
   providerTemplateId?: string;
   active: boolean;

@@ -38,7 +38,7 @@ const Templates = () => {
     if (template) {
       setEditingId(template.id);
       setName(template.name);
-      setContent(template.content.body || JSON.stringify(template.content));
+      setContent(template.content || JSON.stringify(template.content));
       setType(template.type);
       setLanguageCode(template.language?.toLowerCase() === 'hi' ? 'hi' : 'en');
     } else {
@@ -56,7 +56,7 @@ const Templates = () => {
     try {
       const payload: TemplateRequest = {
         name,
-        content: { body: content },
+        content,
         type: type, // Use the selected type from state
         languageCode,
       };
@@ -136,7 +136,7 @@ const Templates = () => {
 
                 <div className="bg-[#efeae2] p-3 rounded-lg mb-4 flex-1 overflow-hidden relative border border-[#d1d7db]">
                   <p className="text-sm text-gray-900 whitespace-pre-wrap leading-relaxed line-clamp-4">
-                  {typeof template.content === 'string' ? template.content : (template.content.body || JSON.stringify(template.content))}
+                  {typeof template.content === 'string' ? template.content : (template.content || JSON.stringify(template.content))}
                 </p>
               </div>
 
