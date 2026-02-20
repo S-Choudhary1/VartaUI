@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import api from '../services/api';
 import { 
   LayoutDashboard, 
   Users, 
@@ -21,6 +22,18 @@ const DashboardLayout = () => {
   const navigate = useNavigate();
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [isProfileOpen, setIsProfileOpen] = useState(false);
+  const [clientLoading, setClientLoading] = useState(false);
+  const [clientError, setClientError] = useState('');
+  const [clientData, setClientData] = useState<ClientDto | null>(null);
+
+  interface ClientDto {
+    id: string;
+    name: string;
+    phoneNumberId: string;
+    wabaId: string;
+    createdAt: string;
+  }
 
   // Close mobile menu on route change
   useEffect(() => {
@@ -38,6 +51,32 @@ const DashboardLayout = () => {
   const handleLogout = () => {
     logout();
     navigate('/login');
+  };
+
+  const handleOpenProfile = async () => {
+    setIsProfileOpen(true);
+    setClientError('');
+
+    if (!user?.clientId) {
+      setClientData(null);
+      setClientError('Client ID is not available for this user.');
+      return;
+    }
+
+    setClientLoading(true);
+    try {
+      const response = await api.get<ClientDto>(`/clients/${user.clientId}`);
+      setClientData(response.data);
+    } catch (error) {
+      setClientData(null);
+      setClientError(error instanceof Error ? error.message : 'Failed to load client details.');
+    } finally {
+      setClientLoading(false);
+    }
+  };
+
+  const handleCloseProfile = () => {
+    setIsProfileOpen(false);
   };
 
   return (
@@ -150,19 +189,23 @@ const DashboardLayout = () => {
             </h2>
           </div>
           
-          <div className="flex items-center space-x-4">
+          <button
+            type="button"
+            onClick={handleOpenProfile}
+            className="flex items-center space-x-4 p-1 rounded-lg hover:bg-gray-50 transition-colors"
+          >
             <div className="flex flex-col items-end hidden md:flex">
               <span className="text-sm font-medium text-gray-900">
                 {user?.username || 'User'}
               </span>
               <span className="text-xs text-gray-500 uppercase tracking-wider">
                 {user?.role || 'Admin'}
-            </span>
+              </span>
             </div>
             <div className="w-10 h-10 bg-gradient-to-br from-whatsapp-teal to-whatsapp-teal-dark rounded-full flex items-center justify-center text-white font-bold text-lg shadow-md ring-2 ring-white">
               {user?.username?.charAt(0).toUpperCase() || 'U'}
             </div>
-          </div>
+          </button>
         </header>
 
         <div className="flex-1 overflow-auto p-4 sm:p-6 lg:p-8 scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-transparent">
@@ -171,6 +214,68 @@ const DashboardLayout = () => {
           </div>
         </div>
       </main>
+
+      {isProfileOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div
+            className="fixed inset-0 bg-black/40"
+            onClick={handleCloseProfile}
+          />
+          <div className="relative w-full max-w-lg rounded-xl bg-white shadow-2xl">
+            <div className="flex items-center justify-between border-b border-gray-100 px-6 py-4">
+              <h3 className="text-lg font-semibold text-gray-900">Profile Details</h3>
+              <button
+                type="button"
+                onClick={handleCloseProfile}
+                className="rounded-md p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <div className="space-y-4 px-6 py-5 text-sm text-gray-700">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <p><span className="font-medium text-gray-900">Username:</span> {user?.username || 'N/A'}</p>
+                <p><span className="font-medium text-gray-900">Role:</span> {user?.role || 'N/A'}</p>
+                <p><span className="font-medium text-gray-900">User ID:</span> {user?.id || 'N/A'}</p>
+                <p><span className="font-medium text-gray-900">Client ID:</span> {user?.clientId || 'N/A'}</p>
+              </div>
+
+              <div className="border-t border-gray-100 pt-4">
+                <h4 className="mb-3 font-semibold text-gray-900">Client Details</h4>
+                {clientLoading ? (
+                  <p className="text-gray-500">Loading client details...</p>
+                ) : clientError ? (
+                  <p className="text-red-600">{clientError}</p>
+                ) : clientData ? (
+                  <div className="space-y-2">
+                    <p><span className="font-medium text-gray-900">Name:</span> {clientData.name}</p>
+                    <p><span className="font-medium text-gray-900">ID:</span> {clientData.id}</p>
+                    <p><span className="font-medium text-gray-900">Phone Number ID:</span> {clientData.phoneNumberId}</p>
+                    <p><span className="font-medium text-gray-900">WABA ID:</span> {clientData.wabaId}</p>
+                    <p>
+                      <span className="font-medium text-gray-900">Created At:</span>{' '}
+                      {clientData.createdAt ? new Date(clientData.createdAt).toLocaleString() : 'N/A'}
+                    </p>
+                  </div>
+                ) : (
+                  <p className="text-gray-500">No client details found.</p>
+                )}
+              </div>
+            </div>
+
+            <div className="flex justify-end border-t border-gray-100 px-6 py-4">
+              <button
+                type="button"
+                onClick={handleCloseProfile}
+                className="rounded-lg border border-gray-200 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
