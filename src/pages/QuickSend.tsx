@@ -136,28 +136,59 @@ const QuickSend = () => {
   const formatMessageContent = (msg: Message) => {
       if (!msg.payloadJson) return <em>(No Content)</em>;
       try {
-          const payload = JSON.parse(msg.payloadJson);
-          if (msg.direction === 'INCOMING') {
-              if (payload.text) return payload.text.body;
-              return <em>(Media/Other)</em>;
-          } else {
-              // Outgoing
-              if (payload.type === 'text') return payload.body;
-              if (payload.type === 'template') {
-                 // Try to reconstruct or just show template name
-                 return (
-                     <div>
-                         <span className="font-semibold text-xs text-gray-500 uppercase block mb-1">Template: {payload.templateName}</span>
-                         {payload.body}
-                         {payload.variables && Object.keys(payload.variables).length > 0 && (
-                             <div className="mt-1 text-xs text-gray-500">
-                                 Vars: {JSON.stringify(payload.variables)}
-                             </div>
-                         )}
-                     </div>
-                 );
-              }
+          const payload = JSON.parse(msg.payloadJson) as Record<string, any>;
+          const type = payload.type || payload.messages?.[0]?.type;
+
+          // Text
+          if (payload.text?.body) return payload.text.body;
+          if (type === 'text' && payload.body) return payload.body;
+
+          // Template
+          if (type === 'template' || payload.templateName) {
+            return (
+              <div>
+                <span className="font-semibold text-xs text-gray-500 uppercase block mb-1">
+                  Template: {payload.templateName || payload.template?.name || 'template_message'}
+                </span>
+                <span>{payload.body || payload.template?.body || 'Template message sent'}</span>
+                {payload.variables && Object.keys(payload.variables).length > 0 && (
+                  <div className="mt-1 text-xs text-gray-500">Vars: {JSON.stringify(payload.variables)}</div>
+                )}
+              </div>
+            );
           }
+
+          // Media: image/video/audio/document/sticker
+          if (payload.image || type === 'image') return <span>📷 Image message</span>;
+          if (payload.video || type === 'video') return <span>🎥 Video message</span>;
+          if (payload.audio || type === 'audio') return <span>🎵 Audio message</span>;
+          if (payload.document || type === 'document') return <span>📄 Document message</span>;
+          if (payload.sticker || type === 'sticker') return <span>🧩 Sticker</span>;
+
+          // Interactive: button/list/reply
+          if (payload.interactive || type === 'interactive') {
+            const interactive = payload.interactive || payload.messages?.[0]?.interactive;
+            const title =
+              interactive?.button_reply?.title ||
+              interactive?.list_reply?.title ||
+              interactive?.nfm_reply?.name ||
+              'Interactive response';
+            return <span>🧠 {title}</span>;
+          }
+
+          // Location / contacts / reaction
+          if (payload.location || type === 'location') {
+            const name = payload.location?.name ? ` (${payload.location.name})` : '';
+            return <span>📍 Location{name}</span>;
+          }
+          if (payload.contacts || type === 'contacts') return <span>👤 Contact card shared</span>;
+          if (payload.reaction || type === 'reaction') {
+            const emoji = payload.reaction?.emoji || payload.messages?.[0]?.reaction?.emoji || '';
+            return <span>🙂 Reaction {emoji}</span>;
+          }
+
+          // Fallback
+          if (type) return <span>{String(type).toUpperCase()} message</span>;
           return JSON.stringify(payload);
       } catch (e) {
           return msg.payloadJson;

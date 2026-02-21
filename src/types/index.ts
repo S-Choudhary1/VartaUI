@@ -50,6 +50,61 @@ export interface TemplateRequest {
   provider_template_id?: string; // Match @JsonProperty("provider_template_id")
 }
 
+export type TemplateCategory = 'MARKETING' | 'UTILITY' | 'AUTHENTICATION';
+export type TemplateLanguageCode = 'en' | 'hi' | 'en_US';
+export type TemplateHeaderFormat = 'TEXT' | 'IMAGE' | 'VIDEO' | 'DOCUMENT' | 'LOCATION';
+export type TemplateButtonType =
+  | 'QUICK_REPLY'
+  | 'URL'
+  | 'PHONE_NUMBER'
+  | 'COPY_CODE'
+  | 'VOICE_CALL'
+  | 'OTP';
+
+export interface TemplateButton {
+  type: TemplateButtonType;
+  text?: string;
+  url?: string;
+  phoneNumber?: string;
+  example?: string;
+}
+
+export interface TemplateHeaderComponent {
+  type: 'HEADER';
+  format: TemplateHeaderFormat;
+  text?: string;
+  mediaHandle?: string;
+}
+
+export interface TemplateBodyComponent {
+  type: 'BODY';
+  text: string;
+  sampleValues?: string[];
+}
+
+export interface TemplateFooterComponent {
+  type: 'FOOTER';
+  text: string;
+}
+
+export interface TemplateButtonsComponent {
+  type: 'BUTTONS';
+  buttons: TemplateButton[];
+}
+
+export type TemplateComponent =
+  | TemplateHeaderComponent
+  | TemplateBodyComponent
+  | TemplateFooterComponent
+  | TemplateButtonsComponent;
+
+export interface AdvancedTemplateRequest {
+  name: string;
+  category: TemplateCategory;
+  languageCode: TemplateLanguageCode;
+  components: TemplateComponent[];
+}
+
 export interface Template {
   id: string;
   name: string;
@@ -61,6 +116,7 @@ export interface Template {
   // Fields used in UI but potentially missing in backend response
   status?: string;
   language?: string;
+  category?: TemplateCategory;
 }
 
 export interface Campaign {

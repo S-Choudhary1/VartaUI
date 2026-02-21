@@ -5,7 +5,7 @@ import Login from './pages/Login';
 import DashboardLayout from './layouts/DashboardLayout';
 import Dashboard from './pages/Dashboard';
 import Contacts from './pages/Contacts';
-import Templates from './pages/Templates';
+import TemplateStudio from './pages/TemplateStudio';
 import Campaigns from './pages/Campaigns';
 import QuickSend from './pages/QuickSend';
 
@@ -60,7 +60,7 @@ function App() {
             <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/contacts" element={<Contacts />} />
             <Route path="/campaigns" element={<Campaigns />} />
-            <Route path="/templates" element={<Templates />} />
+            <Route path="/templates" element={<TemplateStudio />} />
             <Route path="/messages" element={<QuickSend />} />
             <Route path="/" element={<Navigate to="/dashboard" replace />} />
           </Route>
