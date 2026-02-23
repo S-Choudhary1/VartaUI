@@ -347,12 +347,23 @@ const QuickSend = () => {
     if (type === 'template' || getStringValue(payload.templateName)) {
       const templateName = getStringValue(payload.templateName) || getStringValue((payload.template as Record<string, unknown>)?.name);
       const body = getStringValue(payload.body) || getStringValue((payload.template as Record<string, unknown>)?.body);
+      const variableSource =
+        payload.variables && typeof payload.variables === 'object'
+          ? (payload.variables as Record<string, unknown>)
+          : {};
+      const renderedBody = body
+        ? body.replace(/\{\{\s*([^}]+?)\s*\}\}/g, (_match, key: string) => {
+            const raw = variableSource[key];
+            if (raw === undefined || raw === null) return `{{${key}}}`;
+            return String(raw);
+          })
+        : undefined;
       return (
         <div>
           <span className="font-semibold text-xs text-gray-500 uppercase block mb-1">
             Template: {templateName || 'template_message'}
           </span>
-          <span>{body || 'Template message sent'}</span>
+          <span className="whitespace-pre-wrap">{renderedBody || body || 'Template message sent'}</span>
         </div>
       );
     }
