@@ -58,7 +58,7 @@ export interface TemplateRequest {
 }
 
 export type TemplateCategory = 'MARKETING' | 'UTILITY' | 'AUTHENTICATION';
-export type TemplateLanguageCode = 'en' | 'hi' | 'en_US';
+export type TemplateLanguageCode = 'en' | 'hi' | 'en_US' | 'hi_IN';
 export type TemplateHeaderFormat = 'TEXT' | 'IMAGE' | 'VIDEO' | 'DOCUMENT' | 'LOCATION';
 export type TemplateButtonType =
   | 'QUICK_REPLY'
@@ -108,8 +108,36 @@ export type TemplateComponent =
 export interface AdvancedTemplateRequest {
   name: string;
   category: TemplateCategory;
-  languageCode: TemplateLanguageCode;
+  language_code: TemplateLanguageCode;
   components: TemplateComponent[];
+}
+
+export interface MetaTemplateButton {
+  type: string;
+  text?: string;
+  url?: string;
+  payload?: string;
+}
+
+export interface MetaTemplateComponent {
+  type: string;
+  text?: string;
+  format?: string;
+  example?: unknown;
+  buttons?: MetaTemplateButton[];
+}
+
+export interface MetaTemplate {
+  id: string;
+  name: string;
+  status: string;
+  category: string;
+  language: string;
+  qualityScore?: string;
+  rejectionReason?: string | null;
+  specificRejectionReason?: string | null;
+  components?: MetaTemplateComponent[];
+  raw?: Record<string, unknown>;
 }
 
 export interface Template {
@@ -123,7 +151,11 @@ export interface Template {
   // Fields used in UI but potentially missing in backend response
   status?: string;
   language?: string;
+  languageCode?: string;
   category?: TemplateCategory;
+  componentsJson?: string;
+  exampleValuesJson?: string;
+  rawTemplateJson?: string;
 }
 
 export interface Campaign {

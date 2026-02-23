@@ -1,14 +1,14 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Plus, RefreshCw, Trash2 } from 'lucide-react';
+import { Edit2, Plus, RefreshCw, Trash2 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
 import {
   createAdvancedTemplate,
-  createTemplate,
   deleteTemplate,
   getTemplates,
   previewAdvancedTemplate,
+  updateAdvancedTemplate,
 } from '../services/templateService';
 import type {
   AdvancedTemplateRequest,
@@ -20,6 +20,12 @@ import type {
 } from '../types';
 
 type HeaderType = 'NONE' | 'TEXT' | 'IMAGE' | 'VIDEO' | 'DOCUMENT' | 'LOCATION';
+type TemplateLibraryComponent = {
+  type?: string;
+  format?: string;
+  text?: string;
+  buttons?: Array<Record<string, unknown>>;
+};
 
 const buttonTypes: TemplateButtonType[] = [
   'QUICK_REPLY',
@@ -38,10 +44,11 @@ const TemplateStudio = () => {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [previewText, setPreviewText] = useState('');
+  const [editingId, setEditingId] = useState<string | null>(null);
 
   const [name, setName] = useState('');
   const [category, setCategory] = useState<TemplateCategory>('MARKETING');
-  const [languageCode, setLanguageCode] = useState<TemplateLanguageCode>('en');
+  const [languageCode, setLanguageCode] = useState<TemplateLanguageCode>('en_US');
   const [headerType, setHeaderType] = useState<HeaderType>('NONE');
   const [headerText, setHeaderText] = useState('');
   const [headerMediaHandle, setHeaderMediaHandle] = useState('');
@@ -67,9 +74,10 @@ const TemplateStudio = () => {
   }, [variableKeys]);
 
   const resetBuilder = () => {
+    setEditingId(null);
     setName('');
     setCategory('MARKETING');
-    setLanguageCode('en');
+    setLanguageCode('en_US');
     setHeaderType('NONE');
     setHeaderText('');
     setHeaderMediaHandle('');
@@ -97,6 +105,43 @@ const TemplateStudio = () => {
     fetchTemplates();
   }, []);
 
+  const parseJsonArray = (value?: string): TemplateLibraryComponent[] => {
+    if (!value) return [];
+    try {
+      const parsed = JSON.parse(value) as unknown;
+      return Array.isArray(parsed) ? (parsed as TemplateLibraryComponent[]) : [];
+    } catch {
+      return [];
+    }
+  };
+
+  const parseJsonObject = (value?: string): Record<string, unknown> => {
+    if (!value) return {};
+    try {
+      const parsed = JSON.parse(value) as unknown;
+      return parsed && typeof parsed === 'object' ? (parsed as Record<string, unknown>) : {};
+    } catch {
+      return {};
+    }
+  };
+
+  const normalizeTemplateComponents = (template: Template): TemplateLibraryComponent[] => {
+    const byComponentsJson = parseJsonArray(template.componentsJson);
+    if (byComponentsJson.length > 0) return byComponentsJson;
+
+    const raw = parseJsonObject(template.rawTemplateJson);
+    const rawComponents = raw.components;
+    if (Array.isArray(rawComponents)) return rawComponents as TemplateLibraryComponent[];
+
+    if (template.content) {
+      return [{ type: 'BODY', text: template.content }];
+    }
+    return [];
+  };
+
+  const replaceVariablesWithSamples = (text?: string): string =>
+    (text || '').replace(/\{\{(\d+)\}\}/g, (_full, idx: string) => `sample_${idx}`);
+
   const addButton = () => {
     setButtons((prev) => [...prev, { type: 'QUICK_REPLY', text: '' }]);
   };
@@ -107,6 +152,59 @@ const TemplateStudio = () => {
 
   const removeButton = (index: number) => {
     setButtons((prev) => prev.filter((_, idx) => idx !== index));
+  };
+
+  const handleEdit = (template: Template) => {
+    const components = normalizeTemplateComponents(template);
+    const header = components.find((component) => component.type?.toUpperCase() === 'HEADER');
+    const body = components.find((component) => component.type?.toUpperCase() === 'BODY');
+    const footer = components.find((component) => component.type?.toUpperCase() === 'FOOTER');
+    const buttonComponent = components.find((component) => component.type?.toUpperCase() === 'BUTTONS');
+
+    setEditingId(template.id);
+    setName(template.name || '');
+    setCategory((template.category as TemplateCategory) || 'MARKETING');
+
+    const language = (template.languageCode || template.language || 'en_US').toLowerCase();
+    setLanguageCode(language.startsWith('hi') ? 'hi_IN' : 'en_US');
+
+    if (header?.format) {
+      const format = header.format.toUpperCase() as HeaderType;
+      setHeaderType(
+        ['TEXT', 'IMAGE', 'VIDEO', 'DOCUMENT', 'LOCATION'].includes(format) ? format : 'NONE'
+      );
+      setHeaderText(header.text || '');
+      setHeaderMediaHandle('');
+    } else {
+      setHeaderType('NONE');
+      setHeaderText('');
+      setHeaderMediaHandle('');
+    }
+
+    setBodyText(body?.text || template.content || '');
+    setFooterText(footer?.text || '');
+
+    const rawButtons = Array.isArray(buttonComponent?.buttons) ? buttonComponent?.buttons : [];
+    const parsedButtons: TemplateButton[] = rawButtons
+      .map((button) => {
+        const buttonType = String(button.type || 'QUICK_REPLY').toUpperCase() as TemplateButtonType;
+        return {
+          type: buttonTypes.includes(buttonType) ? buttonType : 'QUICK_REPLY',
+          text: typeof button.text === 'string' ? button.text : undefined,
+          url: typeof button.url === 'string' ? button.url : undefined,
+          phoneNumber:
+            typeof button.phoneNumber === 'string'
+              ? button.phoneNumber
+              : typeof button.phone_number === 'string'
+                ? button.phone_number
+                : undefined,
+          example: typeof button.example === 'string' ? button.example : undefined,
+        };
+      })
+      .filter(Boolean);
+    setButtons(parsedButtons);
+    setPreviewText('');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   const buildPayload = (): AdvancedTemplateRequest => {
@@ -156,7 +254,7 @@ const TemplateStudio = () => {
     return {
       name,
       category,
-      languageCode,
+      language_code: languageCode,
       components,
     };
   };
@@ -210,21 +308,17 @@ const TemplateStudio = () => {
     setSuccess('');
     try {
       const payload = buildPayload();
-      await createAdvancedTemplate(payload);
-      setSuccess('Template created and submitted for review.');
+      if (editingId) {
+        await updateAdvancedTemplate(editingId, payload);
+        setSuccess('Template updated successfully.');
+      } else {
+        await createAdvancedTemplate(payload);
+        setSuccess('Template created and submitted for review.');
+      }
       resetBuilder();
       await fetchTemplates();
-    } catch {
-      // Backward compatible fallback to existing endpoint.
-      await createTemplate({
-        name,
-        content: bodyText,
-        type: headerType === 'NONE' ? 'TEXT' : headerType,
-        languageCode: languageCode === 'en_US' ? 'en' : languageCode,
-      });
-      setSuccess('Template created using legacy endpoint.');
-      resetBuilder();
-      await fetchTemplates();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to create template.');
     } finally {
       setSubmitting(false);
     }
@@ -264,7 +358,7 @@ const TemplateStudio = () => {
       <div className="grid grid-cols-1 xl:grid-cols-5 gap-6">
         <Card className="xl:col-span-3">
           <CardHeader>
-            <CardTitle>Create Template</CardTitle>
+            <CardTitle>{editingId ? 'Edit Template' : 'Create Template'}</CardTitle>
           </CardHeader>
           <CardContent>
             <form className="space-y-4" onSubmit={handleCreate}>
@@ -289,9 +383,8 @@ const TemplateStudio = () => {
                     value={languageCode}
                     onChange={(e) => setLanguageCode(e.target.value as TemplateLanguageCode)}
                   >
-                    <option value="en">en</option>
-                    <option value="hi">hi</option>
                     <option value="en_US">en_US</option>
+                    <option value="hi_IN">hi_IN</option>
                   </select>
                 </div>
               </div>
@@ -441,7 +534,7 @@ const TemplateStudio = () => {
                   {previewLoading ? 'Previewing...' : 'Preview'}
                 </Button>
                 <Button type="submit" disabled={submitting}>
-                  {submitting ? 'Submitting...' : 'Create Template'}
+                  {submitting ? 'Submitting...' : editingId ? 'Update Template' : 'Create Template'}
                 </Button>
                 <Button type="button" variant="ghost" onClick={resetBuilder}>
                   Reset
@@ -508,9 +601,60 @@ const TemplateStudio = () => {
                       {template.category || template.type}
                     </span>
                   </div>
-                  <p className="text-xs text-gray-500 uppercase">{template.language || 'en'}</p>
-                  <p className="text-sm text-gray-700 line-clamp-3 whitespace-pre-wrap">{template.content}</p>
-                  <div className="pt-1">
+                  <p className="text-xs text-gray-500 uppercase">{template.languageCode || template.language || 'en_US'}</p>
+                  <div className="rounded-lg border border-gray-200 bg-[#efeae2] p-3">
+                    {(() => {
+                      const components = normalizeTemplateComponents(template);
+                      const header = components.find((component) => component.type?.toUpperCase() === 'HEADER');
+                      const body = components.find((component) => component.type?.toUpperCase() === 'BODY');
+                      const footer = components.find((component) => component.type?.toUpperCase() === 'FOOTER');
+                      const buttonComponent = components.find((component) => component.type?.toUpperCase() === 'BUTTONS');
+                      const rawButtons = Array.isArray(buttonComponent?.buttons) ? buttonComponent?.buttons : [];
+
+                      return (
+                        <div className="rounded-lg bg-white p-3 text-sm text-gray-800 space-y-2">
+                          {header?.text && (
+                            <div className="text-xs font-semibold uppercase text-gray-500 border-b border-gray-100 pb-2">
+                              {replaceVariablesWithSamples(header.text)}
+                            </div>
+                          )}
+                          <div className="whitespace-pre-wrap">
+                            {replaceVariablesWithSamples(body?.text || template.content || 'No body text available')}
+                          </div>
+                          {footer?.text && (
+                            <div className="text-xs text-gray-500 border-t border-gray-100 pt-2">
+                              {replaceVariablesWithSamples(footer.text)}
+                            </div>
+                          )}
+                          {rawButtons.length > 0 && (
+                            <div className="border-t border-gray-100 pt-2 space-y-1">
+                              {rawButtons.map((button, index) => (
+                                <div
+                                  key={`${String(button.type || 'button')}-${index}`}
+                                  className="text-xs rounded-md border border-gray-200 px-2 py-1 text-gray-700"
+                                >
+                                  [{String(button.type || 'ACTION').toUpperCase()}]{' '}
+                                  {String(
+                                    button.text ||
+                                      button.url ||
+                                      button.phoneNumber ||
+                                      button.phone_number ||
+                                      button.payload ||
+                                      'Action'
+                                  )}
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })()}
+                  </div>
+                  <div className="pt-1 flex items-center gap-2">
+                    <Button variant="ghost" size="sm" onClick={() => handleEdit(template)}>
+                      <Edit2 className="w-4 h-4 text-blue-600 mr-1" />
+                      Edit
+                    </Button>
                     <Button variant="ghost" size="sm" onClick={() => handleDelete(template.id)}>
                       <Trash2 className="w-4 h-4 text-red-600 mr-1" />
                       Delete

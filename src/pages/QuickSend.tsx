@@ -7,15 +7,15 @@ import {
   sendMediaMessage,
   type OutboundMessageType,
 } from '../services/messageService';
-import { getTemplates } from '../services/templateService';
+import { getApprovedMetaTemplates } from '../services/templateService';
 import { getContacts } from '../services/contactService';
-import type { Template, ContactResponse, Message } from '../types';
+import type { MetaTemplate, ContactResponse, Message } from '../types';
 import { Card, CardContent } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
 
 const QuickSend = () => {
-  const [templates, setTemplates] = useState<Template[]>([]);
+  const [templates, setTemplates] = useState<MetaTemplate[]>([]);
   const [contacts, setContacts] = useState<ContactResponse[]>([]);
   const [messages, setMessages] = useState<Message[]>([]);
   const [loading, setLoading] = useState(false);
@@ -30,7 +30,6 @@ const QuickSend = () => {
   const [to, setTo] = useState('');
   const [sendType, setSendType] = useState<OutboundMessageType>('TEXT');
   const [selectedTemplate, setSelectedTemplate] = useState('');
-  const [variables, setVariables] = useState<Record<string, string>>({});
   const [textMessage, setTextMessage] = useState('Hello');
   const [mediaFile, setMediaFile] = useState<File | null>(null);
   const [mediaCaption, setMediaCaption] = useState('');
@@ -42,7 +41,7 @@ const QuickSend = () => {
   const chatContainerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    getTemplates().then(setTemplates).catch(console.error);
+    getApprovedMetaTemplates().then(setTemplates).catch(console.error);
     getContacts().then(setContacts).catch(console.error);
   }, []);
 
@@ -86,29 +85,7 @@ const QuickSend = () => {
   };
 
   const handleTemplateChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const tmplId = e.target.value;
-    setSelectedTemplate(tmplId);
-    setVariables({});
-    
-    const tmpl = templates.find(t => t.id === tmplId);
-    if (tmpl && tmpl.content && typeof tmpl.content === 'string') {
-      const matches = tmpl.content.match(/{{(\d+)}}/g);
-      if (matches) {
-        const initialVars: Record<string, string> = {};
-        matches.forEach(m => {
-          const key = m.replace('{{', '').replace('}}', '');
-          initialVars[key] = '';
-        });
-        setVariables(initialVars);
-      }
-    }
-  };
-
-  const handleVariableChange = (key: string, value: string) => {
-    setVariables(prev => ({
-      ...prev,
-      [key]: value
-    }));
+    setSelectedTemplate(e.target.value);
   };
 
   const isFileCompatible = (file: File, type: OutboundMessageType) => {
@@ -141,7 +118,6 @@ const QuickSend = () => {
           to,
           messageType: 'TEMPLATE',
           templateId: selectedTemplate,
-          variables: Object.keys(variables).length > 0 ? variables : undefined,
         });
       } else if (sendType === 'TEXT') {
         if (!textMessage.trim()) {
@@ -173,7 +149,6 @@ const QuickSend = () => {
       setSuccessMsg('Message sent successfully!');
       if (sendType === 'TEMPLATE') {
         setSelectedTemplate('');
-        setVariables({});
       } else if (sendType === 'TEXT') {
         setTextMessage('');
       } else {
@@ -251,8 +226,6 @@ const QuickSend = () => {
       setMediaLoading(messageId, false);
     }
   };
-
-  const currentTemplate = templates.find(t => t.id === selectedTemplate);
 
   const filteredContacts = contacts.filter(c => 
     c.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
@@ -667,7 +640,6 @@ const QuickSend = () => {
                           setErrorMsg('');
                           if (nextType !== 'TEMPLATE') {
                             setSelectedTemplate('');
-                            setVariables({});
                           }
                           if (nextType === 'TEXT') {
                             setMediaFile(null);
@@ -709,22 +681,6 @@ const QuickSend = () => {
                           </div>
                         </div>
                       </div>
-                    )}
-
-                    {sendType === 'TEMPLATE' && currentTemplate && Object.keys(variables).length > 0 && (
-                        <div className="grid grid-cols-2 gap-2 bg-gray-50 p-3 rounded-lg border border-gray-100">
-                             {Object.keys(variables).map(key => (
-                                <input
-                                    key={key}
-                                    type="text"
-                                    required
-                                    value={variables[key]}
-                                    onChange={(e) => handleVariableChange(key, e.target.value)}
-                                    className="w-full px-2 py-1 border border-gray-300 rounded text-sm"
-                                    placeholder={`{{${key}}}`}
-                                />
-                             ))}
-                        </div>
                     )}
 
                     {(sendType === 'IMAGE' || sendType === 'VIDEO' || sendType === 'DOCUMENT') && (

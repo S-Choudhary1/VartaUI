@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { Upload, FileSpreadsheet, Calendar, Send, AlertCircle, CheckCircle, Clock, BarChart2, FileText, Download } from 'lucide-react';
+import { FileSpreadsheet, Calendar, Send, AlertCircle, CheckCircle, Clock, BarChart2, FileText, Download } from 'lucide-react';
 import { createCampaign, getAllCampaigns, exportCampaignResponsesCsv } from '../services/campaignService';
-import { getTemplates } from '../services/templateService';
-import type { Template, Campaign } from '../types';
+import { getApprovedMetaTemplates } from '../services/templateService';
+import type { MetaTemplate, Campaign, MetaTemplateComponent } from '../types';
 import { useAuth } from '../context/AuthContext';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
@@ -10,7 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/Card'
 
 const Campaigns = () => {
   const { user } = useAuth();
-  const [templates, setTemplates] = useState<Template[]>([]);
+  const [templates, setTemplates] = useState<MetaTemplate[]>([]);
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [loading, setLoading] = useState(false);
   const [loadingList, setLoadingList] = useState(true);
@@ -26,9 +26,66 @@ const Campaigns = () => {
   const [scheduledAt, setScheduledAt] = useState('');
 
   useEffect(() => {
-    getTemplates().then(setTemplates).catch(console.error);
+    getApprovedMetaTemplates().then(setTemplates).catch(console.error);
     fetchCampaigns();
   }, []);
+
+  const renderTemplatePreview = (template: MetaTemplate | undefined) => {
+    if (!template) return null;
+    const components = template.components || [];
+
+    const getBodyComponent = () =>
+      components.find((component) => component.type === 'BODY');
+    const getHeaderComponent = () =>
+      components.find((component) => component.type === 'HEADER');
+    const getFooterComponent = () =>
+      components.find((component) => component.type === 'FOOTER');
+    const getButtonsComponent = () =>
+      components.find((component) => component.type === 'BUTTONS');
+
+    const replaceVariables = (value?: string) =>
+      (value || '').replace(/\{\{(\d+)\}\}/g, (_, idx: string) => `sample_${idx}`);
+
+    const header = getHeaderComponent();
+    const body = getBodyComponent();
+    const footer = getFooterComponent();
+    const buttonComponent = getButtonsComponent();
+    const buttons =
+      buttonComponent && Array.isArray((buttonComponent as MetaTemplateComponent).buttons)
+        ? (buttonComponent as MetaTemplateComponent).buttons || []
+        : [];
+
+    return (
+      <div className="mt-3 p-4 bg-gray-50 rounded-lg border border-gray-100">
+        <div className="flex items-center gap-2 text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">
+          <FileText className="w-3 h-3" />
+          Message Preview
+        </div>
+        {header?.text && (
+          <div className="text-xs font-semibold uppercase text-gray-500 border-b border-gray-200 pb-2 mb-2">
+            {replaceVariables(header.text)}
+          </div>
+        )}
+        <p className="text-sm text-gray-700 whitespace-pre-wrap">
+          {replaceVariables(body?.text) || 'No body text found.'}
+        </p>
+        {footer?.text && (
+          <p className="text-xs text-gray-500 border-t border-gray-200 pt-2 mt-2">
+            {replaceVariables(footer.text)}
+          </p>
+        )}
+        {buttons.length > 0 && (
+          <div className="border-t border-gray-200 pt-2 mt-2 space-y-1">
+            {buttons.map((button, index) => (
+              <div key={`${button.type}-${index}`} className="text-xs rounded-md border border-gray-200 px-2 py-1 text-gray-700">
+                [{button.type}] {button.text || button.url || button.payload || 'Action'}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    );
+  };
 
   const fetchCampaigns = async () => {
     setLoadingList(true);
@@ -205,7 +262,7 @@ const Campaigns = () => {
                 <option value="">Select a template...</option>
                 {templates.map(t => (
                   <option key={t.id} value={t.id}>
-                    {t.name} ({t.language})
+                    {t.name}
                   </option>
                 ))}
               </select>
@@ -214,18 +271,7 @@ const Campaigns = () => {
                     </div>
                 </div>
               {selectedTemplate && (
-                  <div className="mt-3 p-4 bg-gray-50 rounded-lg border border-gray-100">
-                    <div className="flex items-center gap-2 text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">
-                       <FileText className="w-3 h-3" />
-                       Message Preview
-                    </div>
-                    <p className="text-sm text-gray-700 whitespace-pre-wrap">
-                      {(() => {
-                    const t = templates.find(t => t.id === selectedTemplate);
-                    return t?.content?.body || JSON.stringify(t?.content || {});
-                  })()}
-                </p>
-                  </div>
+                renderTemplatePreview(templates.find((template) => template.id === selectedTemplate))
               )}
             </div>
 

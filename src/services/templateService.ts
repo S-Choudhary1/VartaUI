@@ -1,5 +1,5 @@
 import api from './api';
-import type { AdvancedTemplateRequest, Template, TemplateRequest } from '../types';
+import type { AdvancedTemplateRequest, MetaTemplate, Template, TemplateRequest } from '../types';
 
 export const getTemplates = async (): Promise<Template[]> => {
   const response = await api.get<Template[]>('/templates');
@@ -40,5 +40,10 @@ export const updateAdvancedTemplate = async (id: string, data: AdvancedTemplateR
 export const previewAdvancedTemplate = async (data: AdvancedTemplateRequest): Promise<{ previewText: string }> => {
   const response = await api.post<{ previewText: string }>('/templates/v2/preview', data);
   return response.data;
+};
+
+export const getApprovedMetaTemplates = async (): Promise<MetaTemplate[]> => {
+  const response = await api.get<{ data: MetaTemplate[] }>('/templates/meta/approved');
+  return response.data?.data || [];
 };
 
