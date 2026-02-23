@@ -1,6 +1,12 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Send, MessageSquare, AlertCircle, CheckCircle, Search, Phone, RefreshCw, User } from 'lucide-react';
-import { sendMessage, getMessageHistory } from '../services/messageService';
+import { Send, MessageSquare, Search, Phone, RefreshCw, User } from 'lucide-react';
+import {
+  sendMessage,
+  getMessageHistory,
+  fetchMessageMedia,
+  sendMediaMessage,
+  type OutboundMessageType,
+} from '../services/messageService';
 import { getTemplates } from '../services/templateService';
 import { getContacts } from '../services/contactService';
 import type { Template, ContactResponse, Message } from '../types';
@@ -16,12 +22,18 @@ const QuickSend = () => {
   const [historyLoading, setHistoryLoading] = useState(false);
   const [successMsg, setSuccessMsg] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
+  const [mediaPreviewUrls, setMediaPreviewUrls] = useState<Record<string, string>>({});
+  const [mediaLoadingById, setMediaLoadingById] = useState<Record<string, boolean>>({});
+  const mediaPreviewUrlsRef = useRef<Record<string, string>>({});
 
   // Form
   const [to, setTo] = useState('');
+  const [sendType, setSendType] = useState<OutboundMessageType>('TEXT');
   const [selectedTemplate, setSelectedTemplate] = useState('');
   const [variables, setVariables] = useState<Record<string, string>>({});
-  const [textMessage, setTextMessage] = useState('Hello'); // Default text if no template
+  const [textMessage, setTextMessage] = useState('Hello');
+  const [mediaFile, setMediaFile] = useState<File | null>(null);
+  const [mediaCaption, setMediaCaption] = useState('');
 
   // Contact Search
   const [searchTerm, setSearchTerm] = useState('');
@@ -48,6 +60,16 @@ const QuickSend = () => {
         chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
     }
   }, [messages]);
+
+  useEffect(() => {
+    mediaPreviewUrlsRef.current = mediaPreviewUrls;
+  }, [mediaPreviewUrls]);
+
+  useEffect(() => {
+    return () => {
+      Object.values(mediaPreviewUrlsRef.current).forEach((url) => URL.revokeObjectURL(url));
+    };
+  }, []);
 
   const loadHistory = async (phone: string) => {
     setHistoryLoading(true);
@@ -89,6 +111,20 @@ const QuickSend = () => {
     }));
   };
 
+  const isFileCompatible = (file: File, type: OutboundMessageType) => {
+    if (type === 'IMAGE') return file.type.startsWith('image/');
+    if (type === 'VIDEO') return file.type.startsWith('video/');
+    if (type === 'DOCUMENT') return true;
+    return false;
+  };
+
+  const getFileAcceptByType = (type: OutboundMessageType) => {
+    if (type === 'IMAGE') return 'image/*';
+    if (type === 'VIDEO') return 'video/*';
+    if (type === 'DOCUMENT') return '.pdf,.doc,.docx,.txt,.csv,.xls,.xlsx,application/*';
+    return '*/*';
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -96,24 +132,67 @@ const QuickSend = () => {
     setSuccessMsg('');
 
     try {
-      await sendMessage({
-        to,
-        templateId: selectedTemplate || undefined,
-        variables: Object.keys(variables).length > 0 ? variables : undefined
-      });
+      if (sendType === 'TEMPLATE') {
+        if (!selectedTemplate) {
+          setErrorMsg('Please select a template.');
+          return;
+        }
+        await sendMessage({
+          to,
+          messageType: 'TEMPLATE',
+          templateId: selectedTemplate,
+          variables: Object.keys(variables).length > 0 ? variables : undefined,
+        });
+      } else if (sendType === 'TEXT') {
+        if (!textMessage.trim()) {
+          setErrorMsg('Please enter a text message.');
+          return;
+        }
+        await sendMessage({
+          to,
+          messageType: 'TEXT',
+          text: textMessage.trim(),
+        });
+      } else {
+        if (!mediaFile) {
+          setErrorMsg(`Please select a ${sendType.toLowerCase()} file.`);
+          return;
+        }
+        if (!isFileCompatible(mediaFile, sendType)) {
+          setErrorMsg(`Selected file is not valid for ${sendType.toLowerCase()}.`);
+          return;
+        }
+        await sendMediaMessage({
+          to,
+          messageType: sendType,
+          file: mediaFile,
+          caption: mediaCaption.trim() || undefined,
+        });
+      }
+
       setSuccessMsg('Message sent successfully!');
-      // Clear form but keep 'to' to show updated history
-      setSelectedTemplate('');
-      setVariables({});
+      if (sendType === 'TEMPLATE') {
+        setSelectedTemplate('');
+        setVariables({});
+      } else if (sendType === 'TEXT') {
+        setTextMessage('');
+      } else {
+        setMediaFile(null);
+        setMediaCaption('');
+      }
       
       // Refresh history
       await loadHistory(to);
     } catch (err) {
       console.error(err);
+        const maybeError = err as {
+          response?: { data?: { message?: string; error?: string } };
+          message?: string;
+        };
         const apiMsg =
-          err.response?.data?.message ||
-          err.response?.data?.error ||
-          err.message ||
+          maybeError.response?.data?.message ||
+          maybeError.response?.data?.error ||
+          maybeError.message ||
           "Failed to send message..";
       setErrorMsg(apiMsg);
     } finally {
@@ -126,6 +205,53 @@ const QuickSend = () => {
     // History loading triggered by useEffect
   };
 
+  const setMediaLoading = (messageId: string, value: boolean) => {
+    setMediaLoadingById((prev) => ({ ...prev, [messageId]: value }));
+  };
+
+  const loadMediaPreview = async (messageId: string) => {
+    if (mediaPreviewUrls[messageId]) return mediaPreviewUrls[messageId];
+    setMediaLoading(messageId, true);
+    try {
+      const { blob } = await fetchMessageMedia(messageId, 'inline');
+      const objectUrl = URL.createObjectURL(blob);
+      setMediaPreviewUrls((prev) => ({ ...prev, [messageId]: objectUrl }));
+      return objectUrl;
+    } catch (err) {
+      console.error('Failed to load media preview', err);
+      setErrorMsg('Unable to load media preview.');
+      return '';
+    } finally {
+      setMediaLoading(messageId, false);
+    }
+  };
+
+  const handleOpenMedia = async (messageId: string) => {
+    const previewUrl = mediaPreviewUrls[messageId] || (await loadMediaPreview(messageId));
+    if (!previewUrl) return;
+    window.open(previewUrl, '_blank', 'noopener,noreferrer');
+  };
+
+  const handleDownloadMedia = async (messageId: string, fallbackFilename: string) => {
+    setMediaLoading(messageId, true);
+    try {
+      const { blob, filename } = await fetchMessageMedia(messageId, 'attachment');
+      const objectUrl = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = objectUrl;
+      link.download = filename || fallbackFilename;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      setTimeout(() => URL.revokeObjectURL(objectUrl), 1000);
+    } catch (err) {
+      console.error('Failed to download media', err);
+      setErrorMsg('Unable to download media file.');
+    } finally {
+      setMediaLoading(messageId, false);
+    }
+  };
+
   const currentTemplate = templates.find(t => t.id === selectedTemplate);
 
   const filteredContacts = contacts.filter(c => 
@@ -133,66 +259,266 @@ const QuickSend = () => {
     c.phone.includes(searchTerm)
   );
 
+  const parseJsonObject = (value?: string | null): Record<string, unknown> => {
+    if (!value) return {};
+    try {
+      const parsed = JSON.parse(value) as unknown;
+      return parsed && typeof parsed === 'object' ? (parsed as Record<string, unknown>) : {};
+    } catch {
+      return {};
+    }
+  };
+
+  const getStringValue = (value: unknown): string | undefined =>
+    typeof value === 'string' && value.trim() ? value : undefined;
+
+  const getNumberValue = (value: unknown): number | undefined =>
+    typeof value === 'number' ? value : undefined;
+
   const formatMessageContent = (msg: Message) => {
-      if (!msg.payloadJson) return <em>(No Content)</em>;
-      try {
-          const payload = JSON.parse(msg.payloadJson) as Record<string, any>;
-          const type = payload.type || payload.messages?.[0]?.type;
+    const payload = parseJsonObject(msg.payloadJson);
+    const response = parseJsonObject(msg.responseJson);
+    const type =
+      (getStringValue(payload.type) || getStringValue(msg.messageType) || '').toLowerCase();
 
-          // Text
-          if (payload.text?.body) return payload.text.body;
-          if (type === 'text' && payload.body) return payload.body;
+    if (!type && !Object.keys(payload).length) return <em>(No Content)</em>;
 
-          // Template
-          if (type === 'template' || payload.templateName) {
-            return (
-              <div>
-                <span className="font-semibold text-xs text-gray-500 uppercase block mb-1">
-                  Template: {payload.templateName || payload.template?.name || 'template_message'}
-                </span>
-                <span>{payload.body || payload.template?.body || 'Template message sent'}</span>
-                {payload.variables && Object.keys(payload.variables).length > 0 && (
-                  <div className="mt-1 text-xs text-gray-500">Vars: {JSON.stringify(payload.variables)}</div>
-                )}
-              </div>
-            );
-          }
+    const mediaFromPayload = (key: string) => {
+      const value = payload[key];
+      if (value && typeof value === 'object') return value as Record<string, unknown>;
+      return {};
+    };
 
-          // Media: image/video/audio/document/sticker
-          if (payload.image || type === 'image') return <span>📷 Image message</span>;
-          if (payload.video || type === 'video') return <span>🎥 Video message</span>;
-          if (payload.audio || type === 'audio') return <span>🎵 Audio message</span>;
-          if (payload.document || type === 'document') return <span>📄 Document message</span>;
-          if (payload.sticker || type === 'sticker') return <span>🧩 Sticker</span>;
+    const renderMediaActions = (messageId: string, filename?: string, showLoadPreview = false) => {
+      const isLoading = !!mediaLoadingById[messageId];
+      return (
+        <div className="flex items-center gap-2 pt-1">
+          {showLoadPreview && !mediaPreviewUrls[messageId] && (
+            <button
+              type="button"
+              onClick={() => loadMediaPreview(messageId)}
+              className="text-xs text-blue-600 hover:underline"
+              disabled={isLoading}
+            >
+              {isLoading ? 'Loading...' : 'Load preview'}
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={() => handleOpenMedia(messageId)}
+            className="text-xs text-blue-600 hover:underline"
+          >
+            Open
+          </button>
+          <button
+            type="button"
+            onClick={() => handleDownloadMedia(messageId, filename || 'download')}
+            className="text-xs text-blue-600 hover:underline"
+            disabled={isLoading}
+          >
+            {isLoading ? 'Please wait...' : 'Download'}
+          </button>
+        </div>
+      );
+    };
 
-          // Interactive: button/list/reply
-          if (payload.interactive || type === 'interactive') {
-            const interactive = payload.interactive || payload.messages?.[0]?.interactive;
-            const title =
-              interactive?.button_reply?.title ||
-              interactive?.list_reply?.title ||
-              interactive?.nfm_reply?.name ||
-              'Interactive response';
-            return <span>🧠 {title}</span>;
-          }
+    // Text
+    const textObj = payload.text;
+    if (textObj && typeof textObj === 'object') {
+      const body = getStringValue((textObj as Record<string, unknown>).body);
+      if (body) return body;
+    }
+    if (type === 'text') {
+      return getStringValue(payload.body) || getStringValue(response.text) || 'Text message';
+    }
 
-          // Location / contacts / reaction
-          if (payload.location || type === 'location') {
-            const name = payload.location?.name ? ` (${payload.location.name})` : '';
-            return <span>📍 Location{name}</span>;
-          }
-          if (payload.contacts || type === 'contacts') return <span>👤 Contact card shared</span>;
-          if (payload.reaction || type === 'reaction') {
-            const emoji = payload.reaction?.emoji || payload.messages?.[0]?.reaction?.emoji || '';
-            return <span>🙂 Reaction {emoji}</span>;
-          }
+    // Template
+    if (type === 'template' || getStringValue(payload.templateName)) {
+      const templateName = getStringValue(payload.templateName) || getStringValue((payload.template as Record<string, unknown>)?.name);
+      const body = getStringValue(payload.body) || getStringValue((payload.template as Record<string, unknown>)?.body);
+      return (
+        <div>
+          <span className="font-semibold text-xs text-gray-500 uppercase block mb-1">
+            Template: {templateName || 'template_message'}
+          </span>
+          <span>{body || 'Template message sent'}</span>
+        </div>
+      );
+    }
 
-          // Fallback
-          if (type) return <span>{String(type).toUpperCase()} message</span>;
-          return JSON.stringify(payload);
-      } catch (e) {
-          return msg.payloadJson;
-      }
+    // Image
+    if (type === 'image' || payload.image) {
+      const image = mediaFromPayload('image');
+      const imageUrl = mediaPreviewUrls[msg.id];
+      const caption = getStringValue(image.caption) || getStringValue(response.caption);
+      return (
+        <div className="space-y-1">
+          {imageUrl ? (
+            <img src={imageUrl} alt={caption || 'Incoming image'} className="max-w-56 rounded-md border border-gray-200" />
+          ) : (
+            <span>📷 Image message</span>
+          )}
+          {caption && <p className="text-xs text-gray-600">{caption}</p>}
+          {renderMediaActions(msg.id, 'image', true)}
+        </div>
+      );
+    }
+
+    // Video
+    if (type === 'video' || payload.video) {
+      const videoUrl = mediaPreviewUrls[msg.id];
+      return (
+        <div className="space-y-1">
+          {videoUrl ? (
+            <video controls className="max-w-56 rounded-md border border-gray-200">
+              <source src={videoUrl} />
+            </video>
+          ) : (
+            <span>🎥 Video message</span>
+          )}
+          {renderMediaActions(msg.id, 'video', true)}
+        </div>
+      );
+    }
+
+    // Audio
+    if (type === 'audio' || payload.audio) {
+      const audioUrl = mediaPreviewUrls[msg.id];
+      return (
+        <div className="space-y-1">
+          {audioUrl ? (
+            <audio controls className="w-56">
+              <source src={audioUrl} />
+            </audio>
+          ) : (
+            <span>🎵 Audio message</span>
+          )}
+          {renderMediaActions(msg.id, 'audio', true)}
+        </div>
+      );
+    }
+
+    // Document
+    if (type === 'document' || payload.document) {
+      const document = mediaFromPayload('document');
+      const docUrl = getStringValue(document.url);
+      const filename =
+        getStringValue(document.filename) ||
+        getStringValue(response.filename) ||
+        'document';
+      const mimeType = getStringValue(document.mime_type) || getStringValue(response.mimeType);
+      return (
+        <div className="space-y-1">
+          <div className="text-sm">📄 {filename}</div>
+          {mimeType && <div className="text-xs text-gray-500">{mimeType}</div>}
+          {!docUrl && <div className="text-xs text-gray-500">Document URL not stored in payload; using backend media API.</div>}
+          {renderMediaActions(msg.id, filename)}
+        </div>
+      );
+    }
+
+    // Sticker
+    if (type === 'sticker' || payload.sticker) {
+      const stickerUrl = mediaPreviewUrls[msg.id];
+      return (
+        <div className="space-y-1">
+          {stickerUrl ? (
+            <img src={stickerUrl} alt="Sticker" className="max-w-28 rounded-md border border-gray-200" />
+          ) : (
+            <span>🧩 Sticker</span>
+          )}
+          {renderMediaActions(msg.id, 'sticker.webp', true)}
+        </div>
+      );
+    }
+
+    // Location
+    if (type === 'location' || payload.location) {
+      const locationObj =
+        (payload.location && typeof payload.location === 'object' ? (payload.location as Record<string, unknown>) : {}) ||
+        {};
+      const latitude = getNumberValue(locationObj.latitude) ?? getNumberValue(response.latitude);
+      const longitude = getNumberValue(locationObj.longitude) ?? getNumberValue(response.longitude);
+      const name = getStringValue(locationObj.name) || getStringValue(response.name) || 'Location';
+      const address = getStringValue(locationObj.address) || getStringValue(response.address);
+      const mapUrl =
+        latitude !== undefined && longitude !== undefined
+          ? `https://maps.google.com/?q=${latitude},${longitude}`
+          : undefined;
+
+      return (
+        <div className="space-y-1">
+          <div>📍 {name}</div>
+          {address && <div className="text-xs text-gray-600">{address}</div>}
+          {latitude !== undefined && longitude !== undefined && (
+            <div className="text-xs text-gray-600">
+              {latitude.toFixed(6)}, {longitude.toFixed(6)}
+            </div>
+          )}
+          {mapUrl && (
+            <a
+              href={mapUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-xs text-blue-600 hover:underline"
+            >
+              Open in Maps
+            </a>
+          )}
+        </div>
+      );
+    }
+
+    // Contacts
+    if (type === 'contacts' || payload.contacts) {
+      const contactsRaw =
+        Array.isArray(payload.contacts) ? (payload.contacts as Array<Record<string, unknown>>) : [];
+      const first = contactsRaw[0];
+      const nameObj = first?.name && typeof first.name === 'object' ? (first.name as Record<string, unknown>) : {};
+      const formattedName = getStringValue(nameObj.formatted_name) || 'Contact shared';
+      const phones = Array.isArray(first?.phones) ? (first.phones as Array<Record<string, unknown>>) : [];
+      const firstPhone = getStringValue(phones[0]?.phone);
+      return (
+        <div>
+          👤 {formattedName}
+          {firstPhone && <div className="text-xs text-gray-600 mt-1">{firstPhone}</div>}
+        </div>
+      );
+    }
+
+    // Interactive
+    if (type === 'interactive' || payload.interactive) {
+      const interactive =
+        payload.interactive && typeof payload.interactive === 'object'
+          ? (payload.interactive as Record<string, unknown>)
+          : {};
+      const buttonReply =
+        interactive.button_reply && typeof interactive.button_reply === 'object'
+          ? (interactive.button_reply as Record<string, unknown>)
+          : {};
+      const listReply =
+        interactive.list_reply && typeof interactive.list_reply === 'object'
+          ? (interactive.list_reply as Record<string, unknown>)
+          : {};
+      const title =
+        getStringValue(buttonReply.title) ||
+        getStringValue(listReply.title) ||
+        getStringValue(interactive.type) ||
+        'Interactive response';
+      return <span>🧠 {title}</span>;
+    }
+
+    // Reaction
+    if (type === 'reaction' || payload.reaction) {
+      const reaction =
+        payload.reaction && typeof payload.reaction === 'object'
+          ? (payload.reaction as Record<string, unknown>)
+          : {};
+      const emoji = getStringValue(reaction.emoji) || getStringValue(response.emoji) || '';
+      return <span>🙂 Reaction {emoji}</span>;
+    }
+
+    return <span>{type ? `${type.toUpperCase()} message` : JSON.stringify(payload)}</span>;
   };
 
   return (
@@ -332,22 +658,60 @@ const QuickSend = () => {
                         />
                     )}
                     
-                    <div className="flex gap-2">
-                         <div className="flex-1">
-                             <select
-                                value={selectedTemplate}
-                                onChange={handleTemplateChange}
-                                className="w-full h-10 px-3 py-2 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-whatsapp-teal focus:border-transparent text-sm"
-                            >
-                                <option value="">Send simple text (Hello)</option>
-                                {templates.map(t => (
-                                    <option key={t.id} value={t.id}>{t.name}</option>
-                                ))}
-                            </select>
-                         </div>
+                    <div>
+                      <select
+                        value={sendType}
+                        onChange={(e) => {
+                          const nextType = e.target.value as OutboundMessageType;
+                          setSendType(nextType);
+                          setErrorMsg('');
+                          if (nextType !== 'TEMPLATE') {
+                            setSelectedTemplate('');
+                            setVariables({});
+                          }
+                          if (nextType === 'TEXT') {
+                            setMediaFile(null);
+                            setMediaCaption('');
+                          }
+                        }}
+                        className="w-full h-10 px-3 py-2 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-whatsapp-teal focus:border-transparent text-sm"
+                      >
+                        <option value="TEXT">Text</option>
+                        <option value="TEMPLATE">Template</option>
+                        <option value="IMAGE">Image</option>
+                        <option value="VIDEO">Video</option>
+                        <option value="DOCUMENT">Document</option>
+                      </select>
                     </div>
 
-                    {currentTemplate && Object.keys(variables).length > 0 && (
+                    {sendType === 'TEXT' && (
+                      <Input
+                        placeholder="Type a message..."
+                        value={textMessage}
+                        onChange={(e) => setTextMessage(e.target.value)}
+                      />
+                    )}
+
+                    {sendType === 'TEMPLATE' && (
+                      <div className="space-y-3">
+                        <div className="flex gap-2">
+                          <div className="flex-1">
+                            <select
+                              value={selectedTemplate}
+                              onChange={handleTemplateChange}
+                              className="w-full h-10 px-3 py-2 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-whatsapp-teal focus:border-transparent text-sm"
+                            >
+                              <option value="">Select template...</option>
+                              {templates.map((t) => (
+                                <option key={t.id} value={t.id}>{t.name}</option>
+                              ))}
+                            </select>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {sendType === 'TEMPLATE' && currentTemplate && Object.keys(variables).length > 0 && (
                         <div className="grid grid-cols-2 gap-2 bg-gray-50 p-3 rounded-lg border border-gray-100">
                              {Object.keys(variables).map(key => (
                                 <input
@@ -361,6 +725,27 @@ const QuickSend = () => {
                                 />
                              ))}
                         </div>
+                    )}
+
+                    {(sendType === 'IMAGE' || sendType === 'VIDEO' || sendType === 'DOCUMENT') && (
+                      <div className="space-y-2 rounded-lg border border-gray-200 p-3 bg-gray-50/60">
+                        <input
+                          type="file"
+                          accept={getFileAcceptByType(sendType)}
+                          onChange={(e) => setMediaFile(e.target.files?.[0] || null)}
+                          className="block w-full text-sm text-gray-700 file:mr-3 file:rounded-md file:border-0 file:bg-gray-200 file:px-3 file:py-1.5 file:text-xs file:font-medium file:text-gray-700 hover:file:bg-gray-300"
+                        />
+                        {mediaFile && (
+                          <p className="text-xs text-gray-500">
+                            Selected: {mediaFile.name}
+                          </p>
+                        )}
+                        <Input
+                          placeholder="Caption (optional)"
+                          value={mediaCaption}
+                          onChange={(e) => setMediaCaption(e.target.value)}
+                        />
+                      </div>
                     )}
                  </div>
 

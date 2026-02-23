@@ -13,10 +13,17 @@ export interface AuthResponse {
 
 export interface Message {
   id: string;
+  campaignId?: string | null;
   contactId: string;
+  providerMessageId?: string;
+  provider?: string;
   direction: 'OUTGOING' | 'INCOMING';
+  messageType?: string;
   status: 'SENT' | 'DELIVERED' | 'READ' | 'FAILED';
+  contextMessageId?: string | null;
   payloadJson: string; // The raw JSON content
+  responseJson?: string | null;
+  error?: string | null;
   createdAt: string;
 }
 
