@@ -30,6 +30,7 @@ const QuickSend = () => {
   const [to, setTo] = useState('');
   const [sendType, setSendType] = useState<OutboundMessageType>('TEXT');
   const [selectedTemplate, setSelectedTemplate] = useState('');
+  const [templateVariables, setTemplateVariables] = useState<Record<string, string>>({});
   const [textMessage, setTextMessage] = useState('Hello');
   const [mediaFile, setMediaFile] = useState<File | null>(null);
   const [mediaCaption, setMediaCaption] = useState('');
@@ -84,8 +85,43 @@ const QuickSend = () => {
     }
   };
 
+  const extractTemplateVariableKeys = (template?: MetaTemplate): string[] => {
+    if (!template?.components || template.components.length === 0) return [];
+    const keys: string[] = [];
+    const addFromText = (value?: string) => {
+      if (!value) return;
+      const matches = value.matchAll(/\{\{\s*([^}]+?)\s*\}\}/g);
+      for (const match of matches) {
+        const key = match[1]?.trim();
+        if (key && !keys.includes(key)) {
+          keys.push(key);
+        }
+      }
+    };
+
+    template.components.forEach((component) => {
+      addFromText(component.text);
+      if (Array.isArray(component.buttons)) {
+        component.buttons.forEach((button) => {
+          addFromText(button.text);
+          addFromText(button.url);
+        });
+      }
+    });
+
+    return keys;
+  };
+
   const handleTemplateChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    setSelectedTemplate(e.target.value);
+    const nextTemplateId = e.target.value;
+    setSelectedTemplate(nextTemplateId);
+    const selected = templates.find((template) => template.id === nextTemplateId);
+    const keys = extractTemplateVariableKeys(selected);
+    const initial: Record<string, string> = {};
+    keys.forEach((key) => {
+      initial[key] = '';
+    });
+    setTemplateVariables(initial);
   };
 
   const isFileCompatible = (file: File, type: OutboundMessageType) => {
@@ -118,6 +154,7 @@ const QuickSend = () => {
           to,
           messageType: 'TEMPLATE',
           templateId: selectedTemplate,
+          variables: Object.keys(templateVariables).length > 0 ? templateVariables : undefined,
         });
       } else if (sendType === 'TEXT') {
         if (!textMessage.trim()) {
@@ -149,6 +186,7 @@ const QuickSend = () => {
       setSuccessMsg('Message sent successfully!');
       if (sendType === 'TEMPLATE') {
         setSelectedTemplate('');
+        setTemplateVariables({});
       } else if (sendType === 'TEXT') {
         setTextMessage('');
       } else {
@@ -640,6 +678,7 @@ const QuickSend = () => {
                           setErrorMsg('');
                           if (nextType !== 'TEMPLATE') {
                             setSelectedTemplate('');
+                            setTemplateVariables({});
                           }
                           if (nextType === 'TEXT') {
                             setMediaFile(null);
@@ -680,6 +719,26 @@ const QuickSend = () => {
                             </select>
                           </div>
                         </div>
+                        {Object.keys(templateVariables).length > 0 && (
+                          <div className="grid grid-cols-2 gap-2 bg-gray-50 p-3 rounded-lg border border-gray-100">
+                            {Object.keys(templateVariables).map((key) => (
+                              <input
+                                key={key}
+                                type="text"
+                                required
+                                value={templateVariables[key]}
+                                onChange={(e) =>
+                                  setTemplateVariables((prev) => ({
+                                    ...prev,
+                                    [key]: e.target.value,
+                                  }))
+                                }
+                                className="w-full px-2 py-1 border border-gray-300 rounded text-sm"
+                                placeholder={`{{${key}}}`}
+                              />
+                            ))}
+                          </div>
+                        )}
                       </div>
                     )}
 
