@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useMemo, useState, useEffect, useRef } from 'react';
 import { Send, MessageSquare, Search, Phone, RefreshCw, User } from 'lucide-react';
 import {
   sendMessage,
@@ -8,14 +8,19 @@ import {
   type OutboundMessageType,
 } from '../services/messageService';
 import { getApprovedMetaTemplates } from '../services/templateService';
+import { getFlows } from '../services/flowService';
+import { createCampaign } from '../services/campaignService';
 import { getContacts } from '../services/contactService';
-import type { MetaTemplate, ContactResponse, Message } from '../types';
+import type { MetaTemplate, ContactResponse, Message, FlowDefinition } from '../types';
 import { Card, CardContent } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
+import { useAuth } from '../context/AuthContext';
 
 const QuickSend = () => {
+  const { user } = useAuth();
   const [templates, setTemplates] = useState<MetaTemplate[]>([]);
+  const [flows, setFlows] = useState<FlowDefinition[]>([]);
   const [contacts, setContacts] = useState<ContactResponse[]>([]);
   const [messages, setMessages] = useState<Message[]>([]);
   const [loading, setLoading] = useState(false);
@@ -28,8 +33,9 @@ const QuickSend = () => {
 
   // Form
   const [to, setTo] = useState('');
-  const [sendType, setSendType] = useState<OutboundMessageType>('TEXT');
+  const [sendType, setSendType] = useState<OutboundMessageType | 'FLOW'>('TEXT');
   const [selectedTemplate, setSelectedTemplate] = useState('');
+  const [selectedFlowVersion, setSelectedFlowVersion] = useState('');
   const [templateVariables, setTemplateVariables] = useState<Record<string, string>>({});
   const [textMessage, setTextMessage] = useState('Hello');
   const [mediaFile, setMediaFile] = useState<File | null>(null);
@@ -43,8 +49,26 @@ const QuickSend = () => {
 
   useEffect(() => {
     getApprovedMetaTemplates().then(setTemplates).catch(console.error);
+    getFlows().then(setFlows).catch(console.error);
     getContacts().then(setContacts).catch(console.error);
   }, []);
+
+  const flowVersionOptions = useMemo(() => {
+    return flows.flatMap((flow) => {
+      if (flow.versions && flow.versions.length > 0) {
+        return flow.versions.map((version) => ({
+          id: version.id,
+          label: `${flow.name} v${version.version ?? '-'} (${version.status || 'DRAFT'})`,
+        }));
+      }
+      return [
+        {
+          id: flow.latestVersionId || flow.id,
+          label: `${flow.name} (default)`,
+        },
+      ];
+    });
+  }, [flows]);
 
   useEffect(() => {
     if (to && to.length >= 10) {
@@ -166,6 +190,22 @@ const QuickSend = () => {
           messageType: 'TEXT',
           text: textMessage.trim(),
         });
+      } else if (sendType === 'FLOW') {
+        if (!selectedFlowVersion) {
+          setErrorMsg('Please select a flow version.');
+          return;
+        }
+        const selectedContact = contacts.find((contact) => contact.phone === to);
+        const contactName = selectedContact?.name || to;
+        const csv = `Name,PhoneNumber\n"${contactName.replaceAll('"', '""')}","${to}"\n`;
+        const csvBlob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+        const csvToUpload = new File([csvBlob], `quick-flow-${Date.now()}.csv`, { type: 'text/csv' });
+        const formData = new FormData();
+        formData.append('file', csvToUpload);
+        formData.append('name', `Quick Flow ${new Date().toLocaleString()}`);
+        formData.append('flowVersionId', selectedFlowVersion);
+        formData.append('uploadedBy', user?.id || '00000000-0000-0000-0000-000000000000');
+        await createCampaign(formData);
       } else {
         if (!mediaFile) {
           setErrorMsg(`Please select a ${sendType.toLowerCase()} file.`);
@@ -187,6 +227,8 @@ const QuickSend = () => {
       if (sendType === 'TEMPLATE') {
         setSelectedTemplate('');
         setTemplateVariables({});
+      } else if (sendType === 'FLOW') {
+        setSelectedFlowVersion('');
       } else if (sendType === 'TEXT') {
         setTextMessage('');
       } else {
@@ -684,12 +726,15 @@ const QuickSend = () => {
                       <select
                         value={sendType}
                         onChange={(e) => {
-                          const nextType = e.target.value as OutboundMessageType;
+                          const nextType = e.target.value as OutboundMessageType | 'FLOW';
                           setSendType(nextType);
                           setErrorMsg('');
                           if (nextType !== 'TEMPLATE') {
                             setSelectedTemplate('');
                             setTemplateVariables({});
+                          }
+                          if (nextType !== 'FLOW') {
+                            setSelectedFlowVersion('');
                           }
                           if (nextType === 'TEXT') {
                             setMediaFile(null);
@@ -703,6 +748,7 @@ const QuickSend = () => {
                         <option value="IMAGE">Image</option>
                         <option value="VIDEO">Video</option>
                         <option value="DOCUMENT">Document</option>
+                        <option value="FLOW">Flow</option>
                       </select>
                     </div>
 
@@ -750,6 +796,31 @@ const QuickSend = () => {
                             ))}
                           </div>
                         )}
+                      </div>
+                    )}
+
+                    {sendType === 'FLOW' && (
+                      <div className="space-y-2">
+                        <select
+                          value={selectedFlowVersion}
+                          onChange={(e) => setSelectedFlowVersion(e.target.value)}
+                          className="w-full h-10 px-3 py-2 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-whatsapp-teal focus:border-transparent text-sm"
+                        >
+                          <option value="">Select flow version...</option>
+                          {flowVersionOptions.map((option) => (
+                            <option key={option.id} value={option.id}>
+                              {option.label}
+                            </option>
+                          ))}
+                        </select>
+                        {flowVersionOptions.length === 0 && (
+                          <p className="text-xs text-red-500">
+                            No flow versions available from API response.
+                          </p>
+                        )}
+                        <p className="text-xs text-gray-500">
+                          This will launch a one-contact flow campaign using selected contact phone.
+                        </p>
                       </div>
                     )}
 

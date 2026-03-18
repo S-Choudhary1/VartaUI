@@ -1,8 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import { FileSpreadsheet, Calendar, Send, AlertCircle, CheckCircle, Clock, BarChart2, FileText, Download } from 'lucide-react';
 import { createCampaign, getAllCampaigns, exportCampaignResponsesCsv } from '../services/campaignService';
 import { getApprovedMetaTemplates } from '../services/templateService';
-import type { MetaTemplate, Campaign, MetaTemplateComponent } from '../types';
+import { getCampaignFlowRuns, getFlows } from '../services/flowService';
+import type { MetaTemplate, Campaign, MetaTemplateComponent, FlowDefinition, FlowRun } from '../types';
 import { useAuth } from '../context/AuthContext';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
@@ -11,6 +12,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/Card'
 const Campaigns = () => {
   const { user } = useAuth();
   const [templates, setTemplates] = useState<MetaTemplate[]>([]);
+  const [flows, setFlows] = useState<FlowDefinition[]>([]);
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [loading, setLoading] = useState(false);
   const [loadingList, setLoadingList] = useState(true);
@@ -18,17 +20,43 @@ const Campaigns = () => {
   const [errorMsg, setErrorMsg] = useState('');
   const [activeTab, setActiveTab] = useState<'create' | 'list'>('create');
   const [exportingCampaignId, setExportingCampaignId] = useState<string | null>(null);
+  const [flowRunsModalOpen, setFlowRunsModalOpen] = useState(false);
+  const [flowRunsLoading, setFlowRunsLoading] = useState(false);
+  const [selectedCampaignName, setSelectedCampaignName] = useState('');
+  const [selectedCampaignFlowRuns, setSelectedCampaignFlowRuns] = useState<FlowRun[]>([]);
 
   // Form State
   const [campaignName, setCampaignName] = useState('');
   const [selectedTemplate, setSelectedTemplate] = useState('');
+  const [selectedFlowVersion, setSelectedFlowVersion] = useState('');
+  const [campaignMode, setCampaignMode] = useState<'TEMPLATE' | 'FLOW'>('TEMPLATE');
   const [csvFile, setCsvFile] = useState<File | null>(null);
   const [scheduledAt, setScheduledAt] = useState('');
 
   useEffect(() => {
     getApprovedMetaTemplates().then(setTemplates).catch(console.error);
+    getFlows().then(setFlows).catch(console.error);
     fetchCampaigns();
   }, []);
+
+  const flowVersionOptions = useMemo(() => {
+    return flows.flatMap((flow) => {
+      if (flow.versions && flow.versions.length > 0) {
+        return flow.versions.map((version) => ({
+          id: version.id,
+          label: `${flow.name} v${version.version ?? '-'} (${version.status || 'DRAFT'})`,
+        }));
+      }
+      // Fallback when backend returns flows without versions.
+      // Uses flow id as value so user can still select and proceed.
+      return [
+        {
+          id: flow.latestVersionId || flow.id,
+          label: `${flow.name} (default)`,
+        },
+      ];
+    });
+  }, [flows]);
 
   const renderTemplatePreview = (template: MetaTemplate | undefined) => {
     if (!template) return null;
@@ -117,8 +145,14 @@ const Campaigns = () => {
       return;
     }
 
-    if (!selectedTemplate) {
+    if (campaignMode === 'TEMPLATE' && !selectedTemplate) {
       setErrorMsg('Please select a message template.');
+      setLoading(false);
+      return;
+    }
+
+    if (campaignMode === 'FLOW' && !selectedFlowVersion) {
+      setErrorMsg('Please select a flow version.');
       setLoading(false);
       return;
     }
@@ -127,7 +161,11 @@ const Campaigns = () => {
       const formData = new FormData();
       formData.append('file', csvFile);
       formData.append('name', campaignName);
-      formData.append('templateId', selectedTemplate);
+      if (campaignMode === 'TEMPLATE') {
+        formData.append('templateId', selectedTemplate);
+      } else {
+        formData.append('flowVersionId', selectedFlowVersion);
+      }
       if (scheduledAt) {
         formData.append('scheduledAt', new Date(scheduledAt).toISOString());
       }
@@ -139,6 +177,7 @@ const Campaigns = () => {
       // Reset form
       setCampaignName('');
       setSelectedTemplate('');
+      setSelectedFlowVersion('');
       setCsvFile(null);
       setScheduledAt('');
       const fileInput = document.getElementById('csvInput') as HTMLInputElement;
@@ -153,10 +192,14 @@ const Campaigns = () => {
       
     } catch (err) {
       console.error(err);
+      const maybeError = err as {
+        response?: { data?: { message?: string; error?: string } };
+        message?: string;
+      };
         const apiMsg =
-          err.response?.data?.message ||
-          err.response?.data?.error ||
-          err.message ||
+          maybeError.response?.data?.message ||
+          maybeError.response?.data?.error ||
+          maybeError.message ||
           "Failed to create campaign.";
       setErrorMsg(apiMsg);
     } finally {
@@ -184,6 +227,71 @@ const Campaigns = () => {
       setErrorMsg('Failed to export campaign responses. Please try again.');
     } finally {
       setExportingCampaignId(null);
+    }
+  };
+
+  const toCsv = (runs: FlowRun[]): string => {
+    const headers = [
+      'runId',
+      'contactId',
+      'phone',
+      'currentStep',
+      'lastResponse',
+      'status',
+      'completed',
+      'failed',
+      'startedAt',
+      'updatedAt',
+    ];
+    const rows = runs.map((run) =>
+      headers
+        .map((header) => {
+          const value = String((run as unknown as Record<string, unknown>)[header] ?? '');
+          return `"${value.replaceAll('"', '""')}"`;
+        })
+        .join(',')
+    );
+    return `${headers.join(',')}\n${rows.join('\n')}`;
+  };
+
+  const handleExportFlowRuns = async (campaign: Campaign) => {
+    setErrorMsg('');
+    setSuccessMsg('');
+    setExportingCampaignId(campaign.id);
+    try {
+      const runs = await getCampaignFlowRuns(campaign.id);
+      const csv = toCsv(runs);
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+      const url = window.URL.createObjectURL(blob);
+      const anchor = document.createElement('a');
+      anchor.href = url;
+      anchor.download = `campaign-${campaign.id}-flow-runs.csv`;
+      document.body.appendChild(anchor);
+      anchor.click();
+      document.body.removeChild(anchor);
+      window.URL.revokeObjectURL(url);
+      setSuccessMsg('Flow runs CSV downloaded successfully.');
+    } catch (error) {
+      console.error('Failed to export campaign flow runs', error);
+      setErrorMsg('Failed to export campaign flow runs.');
+    } finally {
+      setExportingCampaignId(null);
+    }
+  };
+
+  const handleViewFlowRuns = async (campaign: Campaign) => {
+    setFlowRunsModalOpen(true);
+    setFlowRunsLoading(true);
+    setSelectedCampaignName(campaign.name);
+    setSelectedCampaignFlowRuns([]);
+    try {
+      const runs = await getCampaignFlowRuns(campaign.id);
+      setSelectedCampaignFlowRuns(runs);
+    } catch (error) {
+      console.error('Failed to fetch campaign flow runs', error);
+      setErrorMsg('Failed to load flow runs.');
+    } finally {
+      setFlowRunsLoading(false);
     }
   };
 
@@ -251,27 +359,65 @@ const Campaigns = () => {
 
             {/* Template Selection */}
             <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1.5">Message Template</label>
-                <div className="relative">
+              <label className="block text-sm font-medium text-gray-700 mb-1.5">Campaign Type</label>
               <select
-                required
-                value={selectedTemplate}
-                onChange={(e) => setSelectedTemplate(e.target.value)}
-                        className="w-full h-10 px-3 py-2 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-whatsapp-teal focus:border-transparent appearance-none"
+                value={campaignMode}
+                onChange={(e) => {
+                  const mode = e.target.value as 'TEMPLATE' | 'FLOW';
+                  setCampaignMode(mode);
+                  setSelectedTemplate('');
+                  setSelectedFlowVersion('');
+                }}
+                className="w-full h-10 px-3 py-2 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-whatsapp-teal focus:border-transparent mb-3"
               >
-                <option value="">Select a template...</option>
-                {templates.map(t => (
-                  <option key={t.id} value={t.id}>
-                    {t.name}
-                  </option>
-                ))}
+                <option value="TEMPLATE">Template Campaign</option>
+                <option value="FLOW">Flow Campaign</option>
               </select>
+
+              {campaignMode === 'TEMPLATE' ? (
+                <>
+                  <label className="block text-sm font-medium text-gray-700 mb-1.5">Message Template</label>
+                  <div className="relative">
+                    <select
+                      required
+                      value={selectedTemplate}
+                      onChange={(e) => setSelectedTemplate(e.target.value)}
+                      className="w-full h-10 px-3 py-2 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-whatsapp-teal focus:border-transparent appearance-none"
+                    >
+                      <option value="">Select a template...</option>
+                      {templates.map((t) => (
+                        <option key={t.id} value={t.id}>
+                          {t.name}
+                        </option>
+                      ))}
+                    </select>
                     <div className="absolute inset-y-0 right-0 flex items-center px-2 pointer-events-none">
                         <svg className="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path></svg>
                     </div>
                 </div>
-              {selectedTemplate && (
-                renderTemplatePreview(templates.find((template) => template.id === selectedTemplate))
+                  {selectedTemplate &&
+                    renderTemplatePreview(templates.find((template) => template.id === selectedTemplate))}
+                </>
+              ) : (
+                <>
+                  <label className="block text-sm font-medium text-gray-700 mb-1.5">Flow Version</label>
+                  <select
+                    required
+                    value={selectedFlowVersion}
+                    onChange={(e) => setSelectedFlowVersion(e.target.value)}
+                    className="w-full h-10 px-3 py-2 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-whatsapp-teal focus:border-transparent"
+                  >
+                    <option value="">Select a flow version...</option>
+                    {flowVersionOptions.map((option) => (
+                      <option key={option.id} value={option.id}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                  {flowVersionOptions.length === 0 && (
+                    <p className="text-xs text-red-500 mt-1">No flow versions available from API response.</p>
+                  )}
+                </>
               )}
             </div>
 
@@ -386,6 +532,7 @@ const Campaigns = () => {
                      <th className="px-6 py-4 text-xs font-semibold uppercase tracking-wider">Scheduled At</th>
                      <th className="px-6 py-4 text-xs font-semibold uppercase tracking-wider">Progress</th>
                      <th className="px-6 py-4 text-xs font-semibold uppercase tracking-wider">Created At</th>
+                     <th className="px-6 py-4 text-xs font-semibold uppercase tracking-wider text-right">Flow Runs</th>
                      <th className="px-6 py-4 text-xs font-semibold uppercase tracking-wider text-right">Export</th>
                    </tr>
                  </thead>
@@ -420,7 +567,13 @@ const Campaigns = () => {
                              <div className="flex-1 w-24 bg-gray-200 rounded-full h-1.5">
                                 <div 
                                     className="bg-whatsapp-teal h-1.5 rounded-full" 
-                                    style={{ width: `${campaign.totalContacts > 0 ? (campaign.processedContacts / campaign.totalContacts) * 100 : 0}%` }}
+                                    style={{
+                                      width: `${
+                                        (campaign.totalContacts || 0) > 0
+                                          ? (((campaign.processedContacts || 0) / (campaign.totalContacts || 0)) * 100)
+                                          : 0
+                                      }%`,
+                                    }}
                                 ></div>
                              </div>
                              <span className="text-xs">{campaign.processedContacts || 0}/{campaign.totalContacts || 0}</span>
@@ -433,13 +586,36 @@ const Campaigns = () => {
                          <Button
                            variant="outline"
                            size="sm"
-                           onClick={() => handleExportResponses(campaign)}
-                           disabled={exportingCampaignId === campaign.id}
+                           onClick={() => handleViewFlowRuns(campaign)}
                            className="inline-flex items-center gap-1.5"
                          >
-                           <Download className="w-3.5 h-3.5" />
-                           {exportingCampaignId === campaign.id ? 'Exporting...' : 'CSV'}
+                           <FileText className="w-3.5 h-3.5" />
+                           View Runs
                          </Button>
+                       </td>
+                       <td className="px-6 py-4 whitespace-nowrap text-right">
+                         <div className="inline-flex items-center gap-2">
+                           <Button
+                             variant="outline"
+                             size="sm"
+                             onClick={() => handleExportResponses(campaign)}
+                             disabled={exportingCampaignId === campaign.id}
+                             className="inline-flex items-center gap-1.5"
+                           >
+                             <Download className="w-3.5 h-3.5" />
+                             Responses CSV
+                           </Button>
+                           <Button
+                             variant="outline"
+                             size="sm"
+                             onClick={() => handleExportFlowRuns(campaign)}
+                             disabled={exportingCampaignId === campaign.id}
+                             className="inline-flex items-center gap-1.5"
+                           >
+                             <Download className="w-3.5 h-3.5" />
+                             Flow Runs CSV
+                           </Button>
+                         </div>
                        </td>
                      </tr>
                    ))}
@@ -448,6 +624,74 @@ const Campaigns = () => {
              </div>
            )}
         </Card>
+      )}
+
+      {flowRunsModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div
+            className="fixed inset-0 bg-black/40"
+            onClick={() => setFlowRunsModalOpen(false)}
+          />
+          <div className="relative w-full max-w-5xl rounded-xl bg-white shadow-2xl max-h-[80vh] overflow-hidden">
+            <div className="flex items-center justify-between border-b border-gray-100 px-6 py-4">
+              <h3 className="text-lg font-semibold text-gray-900">
+                Flow Runs - {selectedCampaignName || 'Campaign'}
+              </h3>
+              <Button variant="ghost" size="sm" onClick={() => setFlowRunsModalOpen(false)}>
+                Close
+              </Button>
+            </div>
+
+            <div className="p-6 overflow-auto max-h-[65vh]">
+              {flowRunsLoading ? (
+                <div className="text-sm text-gray-500">Loading flow runs...</div>
+              ) : selectedCampaignFlowRuns.length === 0 ? (
+                <div className="text-sm text-gray-500">No flow runs found for this campaign.</div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left">
+                    <thead className="bg-gray-50/50 border-b border-gray-100 text-gray-500">
+                      <tr>
+                        <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wider">Phone</th>
+                        <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wider">Current Step</th>
+                        <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wider">Last Response</th>
+                        <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wider">Status</th>
+                        <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wider">Updated At</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-100">
+                      {selectedCampaignFlowRuns.map((run) => (
+                        <tr key={run.runId} className="hover:bg-gray-50/40">
+                          <td className="px-4 py-3 text-sm text-gray-700">{run.phone || run.contactId}</td>
+                          <td className="px-4 py-3 text-sm text-gray-700">{run.currentStep || '-'}</td>
+                          <td className="px-4 py-3 text-sm text-gray-700 whitespace-pre-wrap">
+                            {run.lastResponse || '-'}
+                          </td>
+                          <td className="px-4 py-3">
+                            <span
+                              className={`px-2 py-1 text-xs rounded-full font-medium border ${
+                                run.status === 'COMPLETED'
+                                  ? 'bg-green-50 text-green-700 border-green-100'
+                                  : run.status === 'FAILED'
+                                    ? 'bg-red-50 text-red-700 border-red-100'
+                                    : 'bg-blue-50 text-blue-700 border-blue-100'
+                              }`}
+                            >
+                              {run.status}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3 text-sm text-gray-500">
+                            {run.updatedAt ? new Date(run.updatedAt).toLocaleString() : '-'}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

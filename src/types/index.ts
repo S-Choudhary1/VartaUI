@@ -166,6 +166,39 @@ export interface Campaign {
   createdAt: string;
   totalContacts?: number;
   processedContacts?: number;
+  flowVersionId?: string | null;
+}
+
+export interface FlowVersion {
+  id: string;
+  version?: number;
+  status?: string;
+  published?: boolean;
+  createdAt?: string;
+  raw?: Record<string, unknown>;
+}
+
+export interface FlowDefinition {
+  id: string;
+  name: string;
+  description?: string;
+  status?: string;
+  latestVersionId?: string;
+  versions?: FlowVersion[];
+  raw?: Record<string, unknown>;
+}
+
+export interface FlowRun {
+  runId: string;
+  contactId: string;
+  phone: string;
+  currentStep?: string;
+  lastResponse?: string;
+  status: 'ACTIVE' | 'COMPLETED' | 'FAILED';
+  completed?: boolean;
+  failed?: boolean;
+  startedAt?: string;
+  updatedAt?: string;
 }
 
 export interface DashboardStats {

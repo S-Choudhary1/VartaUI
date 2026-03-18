@@ -8,6 +8,7 @@ import {
   MessageSquareText, 
   Send, 
   FileText, 
+  Workflow,
   LogOut,
   Menu,
   X,
@@ -45,6 +46,7 @@ const DashboardLayout = () => {
     { path: '/contacts', label: 'Contacts', icon: Users },
     { path: '/campaigns', label: 'Campaigns', icon: Send },
     { path: '/templates', label: 'Templates', icon: FileText },
+    { path: '/flows', label: 'Flows', icon: Workflow },
     { path: '/messages', label: 'Quick Send', icon: MessageSquareText },
   ];
 
