@@ -1,15 +1,14 @@
 import api from './api';
-import type { ContactRequest, ContactResponse } from '../types';
-
-// Need to define ContactRequest/Response in types first if not present
-// Based on controller:
-// POST /api/v1/contacts
-// GET /api/v1/contacts
-// DELETE /api/v1/contacts/{id}
+import type { ContactRequest, ContactResponse, PaginatedResponse } from '../types';
 
 export const getContacts = async (): Promise<ContactResponse[]> => {
-  const response = await api.get<ContactResponse[]>('/contacts');
-  return response.data || [];
+  const response = await api.get<PaginatedResponse<ContactResponse> | ContactResponse[]>('/contacts', {
+    params: { size: 500 }
+  });
+  const data = response.data;
+  if (Array.isArray(data)) return data;
+  if (data && 'content' in data) return data.content;
+  return [];
 };
 
 export const createContact = async (data: ContactRequest): Promise<ContactResponse> => {

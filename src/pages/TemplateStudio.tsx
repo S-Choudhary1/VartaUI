@@ -4,14 +4,13 @@ import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/Card'
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
 import {
-  createAdvancedTemplate,
+  createTemplate,
   deleteTemplate,
   getTemplates,
-  previewAdvancedTemplate,
-  updateAdvancedTemplate,
+  updateTemplate,
 } from '../services/templateService';
 import type {
-  AdvancedTemplateRequest,
+  TemplateRequest,
   Template,
   TemplateButton,
   TemplateButtonType,
@@ -207,8 +206,8 @@ const TemplateStudio = () => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  const buildPayload = (): AdvancedTemplateRequest => {
-    const components: AdvancedTemplateRequest['components'] = [];
+  const buildPayload = (): TemplateRequest => {
+    const components: TemplateRequest['components'] = [];
 
     if (headerType !== 'NONE') {
       if (headerType === 'TEXT') {
@@ -290,11 +289,6 @@ const TemplateStudio = () => {
     setError('');
     setPreviewLoading(true);
     try {
-      const payload = buildPayload();
-      const response = await previewAdvancedTemplate(payload);
-      setPreviewText(response.previewText || generateLocalPreviewBody());
-    } catch {
-      // Fallback local preview if backend preview endpoint is not ready.
       setPreviewText(generateLocalPreviewBody());
     } finally {
       setPreviewLoading(false);
@@ -309,10 +303,10 @@ const TemplateStudio = () => {
     try {
       const payload = buildPayload();
       if (editingId) {
-        await updateAdvancedTemplate(editingId, payload);
+        await updateTemplate(editingId, payload);
         setSuccess('Template updated successfully.');
       } else {
-        await createAdvancedTemplate(payload);
+        await createTemplate(payload);
         setSuccess('Template created and submitted for review.');
       }
       resetBuilder();

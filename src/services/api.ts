@@ -16,7 +16,7 @@ api.interceptors.request.use(
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
-    
+
     const userStr = localStorage.getItem('user');
     if (userStr) {
         try {
@@ -51,4 +51,3 @@ api.interceptors.response.use(
 );
 
 export default api;
-

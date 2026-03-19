@@ -1,25 +1,19 @@
 import api from './api';
-import type { Message } from '../types';
-
-export type OutboundMessageType = 'TEXT' | 'TEMPLATE' | 'IMAGE' | 'VIDEO' | 'DOCUMENT';
-
-export interface SendMessageRequest {
-  to: string;
-  messageType?: OutboundMessageType;
-  text?: string;
-  templateId?: string;
-  variables?: Record<string, string>;
-}
+import type { Message, SendMessageRequest, MessageType, PaginatedResponse } from '../types';
 
 export const sendMessage = async (data: SendMessageRequest): Promise<void> => {
   await api.post('/messages/send', data);
 };
 
 export const getMessageHistory = async (phone: string): Promise<Message[]> => {
-  const response = await api.get<Message[]>(`/messages/history`, {
-    params: { phone }
+  const response = await api.get<PaginatedResponse<Message> | Message[]>(`/messages/history`, {
+    params: { phone, size: 200 }
   });
-  return response.data;
+  // Handle both paginated and array responses for backward compatibility
+  const data = response.data;
+  if (Array.isArray(data)) return data;
+  if (data && 'content' in data) return data.content;
+  return [];
 };
 
 type MediaDisposition = 'inline' | 'attachment';
@@ -47,9 +41,12 @@ export const fetchMessageMedia = async (
   return { blob: response.data, filename };
 };
 
+/** Upload media types that require multipart file upload */
+export type UploadMediaType = Extract<MessageType, 'IMAGE' | 'VIDEO' | 'AUDIO' | 'DOCUMENT' | 'STICKER'>;
+
 export const sendMediaMessage = async (data: {
   to: string;
-  messageType: Extract<OutboundMessageType, 'IMAGE' | 'VIDEO' | 'DOCUMENT'>;
+  messageType: UploadMediaType;
   file: File;
   caption?: string;
 }): Promise<void> => {

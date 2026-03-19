@@ -18,6 +18,7 @@ const Contacts = () => {
   const [newName, setNewName] = useState('');
   const [newPhone, setNewPhone] = useState('');
   const [newEmail, setNewEmail] = useState('');
+  const [newTags, setNewTags] = useState('');
 
   const fetchContacts = async () => {
     try {
@@ -43,11 +44,13 @@ const Contacts = () => {
       setNewName(contact.name);
       setNewPhone(contact.phone);
       setNewEmail(contact.email || '');
+      setNewTags(contact.tags ? contact.tags.join(', ') : '');
     } else {
       setEditingId(null);
       setNewName('');
       setNewPhone('');
       setNewEmail('');
+      setNewTags('');
     }
     setShowModal(true);
   };
@@ -56,9 +59,14 @@ const Contacts = () => {
     e.preventDefault();
     setError('');
     try {
+      const parsedTags = newTags
+        .split(',')
+        .map(t => t.trim())
+        .filter(t => t.length > 0);
       const contactData: any = {
         name: newName,
         phone: newPhone,
+        tags: parsedTags.length > 0 ? parsedTags : undefined,
         metadata: newEmail ? { email: newEmail } : {}
       };
 
@@ -175,7 +183,21 @@ const Contacts = () => {
                           <div className="w-8 h-8 rounded-full bg-gradient-to-br from-gray-100 to-gray-200 flex items-center justify-center text-gray-600 font-bold text-xs">
                              {contact.name.charAt(0).toUpperCase()}
                           </div>
-                          <span className="font-medium text-gray-900">{contact.name}</span>
+                          <div className="flex flex-col">
+                            <span className="font-medium text-gray-900">{contact.name}</span>
+                            {contact.tags && contact.tags.length > 0 && (
+                              <div className="flex flex-wrap gap-1 mt-0.5">
+                                {contact.tags.map((tag, idx) => (
+                                  <span
+                                    key={idx}
+                                    className="inline-block px-1.5 py-0.5 text-[10px] font-medium rounded-full bg-teal-100 text-teal-700"
+                                  >
+                                    {tag}
+                                  </span>
+                                ))}
+                              </div>
+                            )}
+                          </div>
                        </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-gray-600">
@@ -295,54 +317,17 @@ const Contacts = () => {
                       />
                   </div>
               </div>
-              {/* Spacer for the fixed div above to prevent overlap if needed, but flex handles it usually. 
-                  However, "fixed" class takes it out of flow. 
-                  Wait, I put "fixed" class because of the Cypress test requirement from before? 
-                  
-                  Actually, the Cypress test was looking for `.fixed input`. 
-                  Using `fixed` CSS class inside a modal form is bad layout practice.
-                  It was likely a misunderstanding of the previous fix. 
-                  The previous fix tried to target the modal which might have had a `fixed` class on the overlay.
-                  
-                  Let's check the previous Contacts.tsx.
-                  It had `fixed inset-0` on the overlay wrapper.
-                  So `.fixed input` worked because the inputs were inside that wrapper.
-                  
-                  Here, I have `fixed inset-0` on the overlay wrapper div above.
-                  So I don't need to add `className="fixed"` to the form div.
-                  I should remove it to keep layout correct. 
-               */}
-               
-               {/* Re-doing the form inputs without the 'fixed' wrapper but ensuring the outer modal wrapper has 'fixed' class which it does. */}
-               
-               <Input
-                  label="Full Name"
-                  type="text"
-                  required
-                  value={newName}
-                  onChange={(e) => setNewName(e.target.value)}
-                  placeholder="e.g. John Doe"
-                />
-                
-              <div>
-                   <Input
-                      label="Phone Number"
-                  type="tel"
-                  required
-                  value={newPhone}
-                  onChange={(e) => setNewPhone(e.target.value)}
-                  placeholder="911234567890"
-                />
-                    <p className="text-xs text-gray-500 mt-1">Add country code 91</p>
-              </div>
 
-                <Input
-                    label="Email Address (Optional)"
-                  type="email"
-                  value={newEmail}
-                  onChange={(e) => setNewEmail(e.target.value)}
-                    placeholder="john@example.com"
+              <div className="mt-4">
+                <label className="block text-sm font-medium text-gray-700 mb-1">Tags (comma-separated)</label>
+                <input
+                  type="text"
+                  value={newTags}
+                  onChange={(e) => setNewTags(e.target.value)}
+                  placeholder="e.g. VIP, Lead, Newsletter"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-whatsapp-teal focus:border-transparent outline-none transition-all text-sm"
                 />
+              </div>
 
               <div className="flex justify-end gap-3 pt-4">
                 <Button

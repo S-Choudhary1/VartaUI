@@ -1,39 +1,29 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Send, MessageSquare, Search, Phone, RefreshCw, User } from 'lucide-react';
+import { MessageSquare, Search, Phone, RefreshCw, User, Reply } from 'lucide-react';
 import {
-  sendMessage,
   getMessageHistory,
   fetchMessageMedia,
-  sendMediaMessage,
-  type OutboundMessageType,
 } from '../services/messageService';
-import { getApprovedMetaTemplates } from '../services/templateService';
 import { getContacts } from '../services/contactService';
-import type { MetaTemplate, ContactResponse, Message } from '../types';
+import type { ContactResponse, Message } from '../types';
 import { Card, CardContent } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
-import { Input } from '../components/ui/Input';
+import MessageComposer from '../components/messaging/MessageComposer';
 
 const QuickSend = () => {
-  const [templates, setTemplates] = useState<MetaTemplate[]>([]);
   const [contacts, setContacts] = useState<ContactResponse[]>([]);
   const [messages, setMessages] = useState<Message[]>([]);
-  const [loading, setLoading] = useState(false);
   const [historyLoading, setHistoryLoading] = useState(false);
-  const [successMsg, setSuccessMsg] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
   const [mediaPreviewUrls, setMediaPreviewUrls] = useState<Record<string, string>>({});
   const [mediaLoadingById, setMediaLoadingById] = useState<Record<string, boolean>>({});
   const mediaPreviewUrlsRef = useRef<Record<string, string>>({});
 
-  // Form
+  // Selected contact
   const [to, setTo] = useState('');
-  const [sendType, setSendType] = useState<OutboundMessageType>('TEXT');
-  const [selectedTemplate, setSelectedTemplate] = useState('');
-  const [templateVariables, setTemplateVariables] = useState<Record<string, string>>({});
-  const [textMessage, setTextMessage] = useState('Hello');
-  const [mediaFile, setMediaFile] = useState<File | null>(null);
-  const [mediaCaption, setMediaCaption] = useState('');
+
+  // Reply-to
+  const [replyTo, setReplyTo] = useState<Message | null>(null);
 
   // Contact Search
   const [searchTerm, setSearchTerm] = useState('');
@@ -42,7 +32,6 @@ const QuickSend = () => {
   const chatContainerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    getApprovedMetaTemplates().then(setTemplates).catch(console.error);
     getContacts().then(setContacts).catch(console.error);
   }, []);
 
@@ -82,134 +71,6 @@ const QuickSend = () => {
         console.error("Failed to load history", e);
     } finally {
         setHistoryLoading(false);
-    }
-  };
-
-  const extractTemplateVariableKeys = (template?: MetaTemplate): string[] => {
-    if (!template?.components || template.components.length === 0) return [];
-    const keys: string[] = [];
-    const addFromText = (value?: string) => {
-      if (!value) return;
-      const matches = value.matchAll(/\{\{\s*([^}]+?)\s*\}\}/g);
-      for (const match of matches) {
-        const key = match[1]?.trim();
-        if (key && !keys.includes(key)) {
-          keys.push(key);
-        }
-      }
-    };
-
-    template.components.forEach((component) => {
-      addFromText(component.text);
-      if (Array.isArray(component.buttons)) {
-        component.buttons.forEach((button) => {
-          addFromText(button.text);
-          addFromText(button.url);
-        });
-      }
-    });
-
-    return keys;
-  };
-
-  const handleTemplateChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const nextTemplateId = e.target.value;
-    setSelectedTemplate(nextTemplateId);
-    const selected = templates.find((template) => template.id === nextTemplateId);
-    const keys = extractTemplateVariableKeys(selected);
-    const initial: Record<string, string> = {};
-    keys.forEach((key) => {
-      initial[key] = '';
-    });
-    setTemplateVariables(initial);
-  };
-
-  const isFileCompatible = (file: File, type: OutboundMessageType) => {
-    if (type === 'IMAGE') return file.type.startsWith('image/');
-    if (type === 'VIDEO') return file.type.startsWith('video/');
-    if (type === 'DOCUMENT') return true;
-    return false;
-  };
-
-  const getFileAcceptByType = (type: OutboundMessageType) => {
-    if (type === 'IMAGE') return 'image/*';
-    if (type === 'VIDEO') return 'video/*';
-    if (type === 'DOCUMENT') return '.pdf,.doc,.docx,.txt,.csv,.xls,.xlsx,application/*';
-    return '*/*';
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
-    setErrorMsg('');
-    setSuccessMsg('');
-
-    try {
-      if (sendType === 'TEMPLATE') {
-        if (!selectedTemplate) {
-          setErrorMsg('Please select a template.');
-          return;
-        }
-        await sendMessage({
-          to,
-          messageType: 'TEMPLATE',
-          templateId: selectedTemplate,
-          variables: Object.keys(templateVariables).length > 0 ? templateVariables : undefined,
-        });
-      } else if (sendType === 'TEXT') {
-        if (!textMessage.trim()) {
-          setErrorMsg('Please enter a text message.');
-          return;
-        }
-        await sendMessage({
-          to,
-          messageType: 'TEXT',
-          text: textMessage.trim(),
-        });
-      } else {
-        if (!mediaFile) {
-          setErrorMsg(`Please select a ${sendType.toLowerCase()} file.`);
-          return;
-        }
-        if (!isFileCompatible(mediaFile, sendType)) {
-          setErrorMsg(`Selected file is not valid for ${sendType.toLowerCase()}.`);
-          return;
-        }
-        await sendMediaMessage({
-          to,
-          messageType: sendType,
-          file: mediaFile,
-          caption: mediaCaption.trim() || undefined,
-        });
-      }
-
-      setSuccessMsg('Message sent successfully!');
-      if (sendType === 'TEMPLATE') {
-        setSelectedTemplate('');
-        setTemplateVariables({});
-      } else if (sendType === 'TEXT') {
-        setTextMessage('');
-      } else {
-        setMediaFile(null);
-        setMediaCaption('');
-      }
-      
-      // Refresh history
-      await loadHistory(to);
-    } catch (err) {
-      console.error(err);
-        const maybeError = err as {
-          response?: { data?: { message?: string; error?: string } };
-          message?: string;
-        };
-        const apiMsg =
-          maybeError.response?.data?.message ||
-          maybeError.response?.data?.error ||
-          maybeError.message ||
-          "Failed to send message..";
-      setErrorMsg(apiMsg);
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -514,20 +375,67 @@ const QuickSend = () => {
         payload.interactive && typeof payload.interactive === 'object'
           ? (payload.interactive as Record<string, unknown>)
           : {};
-      const buttonReply =
-        interactive.button_reply && typeof interactive.button_reply === 'object'
-          ? (interactive.button_reply as Record<string, unknown>)
-          : {};
-      const listReply =
-        interactive.list_reply && typeof interactive.list_reply === 'object'
-          ? (interactive.list_reply as Record<string, unknown>)
-          : {};
-      const title =
-        getStringValue(buttonReply.title) ||
-        getStringValue(listReply.title) ||
-        getStringValue(interactive.type) ||
-        'Interactive response';
-      return <span>🧠 {title}</span>;
+      const interactiveType = getStringValue(interactive.type);
+      const bodyObj = interactive.body && typeof interactive.body === 'object'
+        ? (interactive.body as Record<string, unknown>) : {};
+      const bodyText = getStringValue(bodyObj.text);
+      const actionObj = interactive.action && typeof interactive.action === 'object'
+        ? (interactive.action as Record<string, unknown>) : {};
+
+      // Incoming interactive reply
+      const buttonReply = interactive.button_reply && typeof interactive.button_reply === 'object'
+        ? (interactive.button_reply as Record<string, unknown>) : {};
+      const listReply = interactive.list_reply && typeof interactive.list_reply === 'object'
+        ? (interactive.list_reply as Record<string, unknown>) : {};
+      if (getStringValue(buttonReply.title) || getStringValue(listReply.title)) {
+        const replyTitle = getStringValue(buttonReply.title) || getStringValue(listReply.title);
+        const replyDesc = getStringValue(listReply.description);
+        return (
+          <div>
+            <div className="inline-block px-3 py-1.5 bg-blue-50 border border-blue-200 rounded-full text-sm font-medium text-blue-700">
+              {replyTitle}
+            </div>
+            {replyDesc && <p className="text-xs text-gray-500 mt-1">{replyDesc}</p>}
+          </div>
+        );
+      }
+
+      // Outgoing interactive (buttons or list)
+      return (
+        <div className="space-y-2">
+          {bodyText && <p>{bodyText}</p>}
+          {interactiveType === 'button' && Array.isArray(actionObj.buttons) && (
+            <div className="flex flex-wrap gap-1 mt-1">
+              {(actionObj.buttons as Array<Record<string, unknown>>).map((btn, i) => {
+                const reply = btn.reply && typeof btn.reply === 'object' ? (btn.reply as Record<string, unknown>) : {};
+                return (
+                  <span key={i} className="inline-block px-3 py-1 bg-white border border-gray-300 rounded-full text-xs text-blue-600 font-medium">
+                    {getStringValue(reply.title) || `Button ${i + 1}`}
+                  </span>
+                );
+              })}
+            </div>
+          )}
+          {interactiveType === 'list' && Array.isArray(actionObj.sections) && (
+            <div className="space-y-1 mt-1">
+              {(actionObj.sections as Array<Record<string, unknown>>).map((section, si) => (
+                <div key={si}>
+                  {getStringValue(section.title) && (
+                    <p className="text-xs font-semibold text-gray-500 uppercase">{getStringValue(section.title)}</p>
+                  )}
+                  {Array.isArray(section.rows) && (section.rows as Array<Record<string, unknown>>).map((row, ri) => (
+                    <div key={ri} className="text-xs pl-2 border-l-2 border-gray-200 ml-1 py-0.5">
+                      <span className="font-medium">{getStringValue(row.title)}</span>
+                      {getStringValue(row.description) && <span className="text-gray-400 ml-1">- {getStringValue(row.description)}</span>}
+                    </div>
+                  ))}
+                </div>
+              ))}
+            </div>
+          )}
+          {!bodyText && !interactiveType && <span>Interactive message</span>}
+        </div>
+      );
     }
 
     // Reaction
@@ -537,7 +445,9 @@ const QuickSend = () => {
           ? (payload.reaction as Record<string, unknown>)
           : {};
       const emoji = getStringValue(reaction.emoji) || getStringValue(response.emoji) || '';
-      return <span>🙂 Reaction {emoji}</span>;
+      return (
+        <span className="text-2xl" title={`Reaction: ${emoji}`}>{emoji || 'Reaction removed'}</span>
+      );
     }
 
     return <span>{type ? `${type.toUpperCase()} message` : JSON.stringify(payload)}</span>;
@@ -641,12 +551,29 @@ const QuickSend = () => {
                     messages.map((msg) => {
                         const isOutgoing = msg.direction === 'OUTGOING';
                         return (
-                            <div key={msg.id} className={`flex ${isOutgoing ? 'justify-end' : 'justify-start'}`}>
-                                <div className={`max-w-[70%] rounded-lg p-3 shadow-sm ${
-                                    isOutgoing 
-                                        ? 'bg-[#d9fdd3] text-gray-800 rounded-tr-none' 
+                            <div key={msg.id} className={`group flex ${isOutgoing ? 'justify-end' : 'justify-start'}`}>
+                                <div className={`max-w-[70%] rounded-lg p-3 shadow-sm relative ${
+                                    isOutgoing
+                                        ? 'bg-[#d9fdd3] text-gray-800 rounded-tr-none'
                                         : 'bg-white text-gray-800 rounded-tl-none'
                                 }`}>
+                                    {/* Reply button (visible on hover) */}
+                                    <button
+                                      type="button"
+                                      onClick={() => setReplyTo(msg)}
+                                      className="absolute -top-2 right-1 opacity-0 group-hover:opacity-100 transition-opacity bg-white border border-gray-200 rounded-full p-1 shadow-sm hover:bg-gray-50"
+                                      title="Reply"
+                                    >
+                                      <Reply className="w-3 h-3 text-gray-500" />
+                                    </button>
+
+                                    {/* Reply context (if this message is a reply) */}
+                                    {msg.contextMessageId && (
+                                      <div className="text-xs bg-black/5 rounded px-2 py-1 mb-1 border-l-2 border-whatsapp-teal truncate">
+                                        Replying to a message
+                                      </div>
+                                    )}
+
                                     <div className="text-sm">
                                         {formatMessageContent(msg)}
                                     </div>
@@ -669,118 +596,15 @@ const QuickSend = () => {
           {/* Send Area */}
           <Card className="flex-shrink-0">
             <CardContent className="p-4">
-              <form onSubmit={handleSubmit} className="flex gap-4 items-end">
-                 <div className="flex-1 space-y-4">
-                    {!to && (
-                        <Input
-                            placeholder="Or type phone number..."
-                            value={to}
-                            onChange={(e) => setTo(e.target.value)}
-                            className="mb-2"
-                        />
-                    )}
-                    
-                    <div>
-                      <select
-                        value={sendType}
-                        onChange={(e) => {
-                          const nextType = e.target.value as OutboundMessageType;
-                          setSendType(nextType);
-                          setErrorMsg('');
-                          if (nextType !== 'TEMPLATE') {
-                            setSelectedTemplate('');
-                            setTemplateVariables({});
-                          }
-                          if (nextType === 'TEXT') {
-                            setMediaFile(null);
-                            setMediaCaption('');
-                          }
-                        }}
-                        className="w-full h-10 px-3 py-2 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-whatsapp-teal focus:border-transparent text-sm"
-                      >
-                        <option value="TEXT">Text</option>
-                        <option value="TEMPLATE">Template</option>
-                        <option value="IMAGE">Image</option>
-                        <option value="VIDEO">Video</option>
-                        <option value="DOCUMENT">Document</option>
-                      </select>
-                    </div>
-
-                    {sendType === 'TEXT' && (
-                      <Input
-                        placeholder="Type a message..."
-                        value={textMessage}
-                        onChange={(e) => setTextMessage(e.target.value)}
-                      />
-                    )}
-
-                    {sendType === 'TEMPLATE' && (
-                      <div className="space-y-3">
-                        <div className="flex gap-2">
-                          <div className="flex-1">
-                            <select
-                              value={selectedTemplate}
-                              onChange={handleTemplateChange}
-                              className="w-full h-10 px-3 py-2 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-whatsapp-teal focus:border-transparent text-sm"
-                            >
-                              <option value="">Select template...</option>
-                              {templates.map((t) => (
-                                <option key={t.id} value={t.id}>{t.name}</option>
-                              ))}
-                            </select>
-                          </div>
-                        </div>
-                        {Object.keys(templateVariables).length > 0 && (
-                          <div className="grid grid-cols-2 gap-2 bg-gray-50 p-3 rounded-lg border border-gray-100">
-                            {Object.keys(templateVariables).map((key) => (
-                              <input
-                                key={key}
-                                type="text"
-                                required
-                                value={templateVariables[key]}
-                                onChange={(e) =>
-                                  setTemplateVariables((prev) => ({
-                                    ...prev,
-                                    [key]: e.target.value,
-                                  }))
-                                }
-                                className="w-full px-2 py-1 border border-gray-300 rounded text-sm"
-                                placeholder={`{{${key}}}`}
-                              />
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                    )}
-
-                    {(sendType === 'IMAGE' || sendType === 'VIDEO' || sendType === 'DOCUMENT') && (
-                      <div className="space-y-2 rounded-lg border border-gray-200 p-3 bg-gray-50/60">
-                        <input
-                          type="file"
-                          accept={getFileAcceptByType(sendType)}
-                          onChange={(e) => setMediaFile(e.target.files?.[0] || null)}
-                          className="block w-full text-sm text-gray-700 file:mr-3 file:rounded-md file:border-0 file:bg-gray-200 file:px-3 file:py-1.5 file:text-xs file:font-medium file:text-gray-700 hover:file:bg-gray-300"
-                        />
-                        {mediaFile && (
-                          <p className="text-xs text-gray-500">
-                            Selected: {mediaFile.name}
-                          </p>
-                        )}
-                        <Input
-                          placeholder="Caption (optional)"
-                          value={mediaCaption}
-                          onChange={(e) => setMediaCaption(e.target.value)}
-                        />
-                      </div>
-                    )}
-                 </div>
-
-                 <Button type="submit" disabled={loading || !to} className="h-10 px-6">
-                    {loading ? '...' : <Send className="w-5 h-5" />}
-                 </Button>
-              </form>
-              {errorMsg && <p className="text-red-500 text-xs mt-2">{errorMsg}</p>}
-              {successMsg && <p className="text-green-500 text-xs mt-2">{successMsg}</p>}
+              <MessageComposer
+                to={to}
+                onSent={() => loadHistory(to)}
+                replyTo={replyTo}
+                onCancelReply={() => setReplyTo(null)}
+                disabled={!to}
+                showPhoneInput={!to}
+                onPhoneChange={setTo}
+              />
             </CardContent>
           </Card>
         </div>

@@ -1,3 +1,7 @@
+// ═══════════════════════════════════════════════════════════════
+//  AUTH
+// ═══════════════════════════════════════════════════════════════
+
 export interface User {
   id: string;
   username: string;
@@ -11,21 +15,228 @@ export interface AuthResponse {
   user: User;
 }
 
+// ═══════════════════════════════════════════════════════════════
+//  MESSAGE TYPES
+// ═══════════════════════════════════════════════════════════════
+
+export type MessageType =
+  | 'TEXT'
+  | 'TEMPLATE'
+  | 'IMAGE'
+  | 'VIDEO'
+  | 'AUDIO'
+  | 'DOCUMENT'
+  | 'STICKER'
+  | 'LOCATION'
+  | 'CONTACTS'
+  | 'INTERACTIVE'
+  | 'REACTION'
+  | 'BUTTON'
+  | 'ORDER'
+  | 'SYSTEM'
+  | 'UNKNOWN';
+
+export type MessageDirection = 'OUTGOING' | 'INCOMING';
+export type MessageStatus = 'QUEUED' | 'SENT' | 'DELIVERED' | 'READ' | 'FAILED' | 'UNKNOWN';
+
 export interface Message {
   id: string;
   campaignId?: string | null;
-  contactId: string;
+  contactId?: string | null;
   providerMessageId?: string;
   provider?: string;
-  direction: 'OUTGOING' | 'INCOMING';
-  messageType?: string;
-  status: 'SENT' | 'DELIVERED' | 'READ' | 'FAILED';
+  direction: MessageDirection;
+  messageType?: MessageType;
+  status: MessageStatus;
   contextMessageId?: string | null;
-  payloadJson: string; // The raw JSON content
+  payloadJson: string;
   responseJson?: string | null;
   error?: string | null;
   createdAt: string;
 }
+
+// ═══════════════════════════════════════════════════════════════
+//  SEND MESSAGE REQUEST (unified)
+// ═══════════════════════════════════════════════════════════════
+
+export interface TextPayload {
+  body: string;
+  previewUrl?: boolean;
+}
+
+export interface MediaPayload {
+  link?: string;
+  mediaId?: string;
+  caption?: string;
+  filename?: string;
+}
+
+export interface LocationPayload {
+  latitude: number;
+  longitude: number;
+  name?: string;
+  address?: string;
+}
+
+export interface ContactCardName {
+  formattedName: string;
+  firstName?: string;
+  lastName?: string;
+  middleName?: string;
+  prefix?: string;
+  suffix?: string;
+}
+
+export interface ContactCardPhone {
+  phone: string;
+  type?: string;
+  waId?: string;
+}
+
+export interface ContactCardEmail {
+  email: string;
+  type?: string;
+}
+
+export interface ContactCardAddress {
+  street?: string;
+  city?: string;
+  state?: string;
+  zip?: string;
+  country?: string;
+  countryCode?: string;
+  type?: string;
+}
+
+export interface ContactCardOrg {
+  company?: string;
+  department?: string;
+  title?: string;
+}
+
+export interface ContactCardUrl {
+  url: string;
+  type?: string;
+}
+
+export interface ContactCardPayload {
+  name: ContactCardName;
+  phones?: ContactCardPhone[];
+  emails?: ContactCardEmail[];
+  addresses?: ContactCardAddress[];
+  org?: ContactCardOrg;
+  urls?: ContactCardUrl[];
+  birthday?: string;
+}
+
+export interface ReactionPayload {
+  messageId: string;
+  emoji: string;
+}
+
+export interface TemplatePayload {
+  templateId: string;
+  variables?: Record<string, string>;
+}
+
+export interface ContextPayload {
+  messageId: string;
+}
+
+// ─── Interactive Payload ─────────────────────────────────────
+
+export type InteractiveType = 'button' | 'list' | 'cta_url' | 'product' | 'product_list';
+
+export interface InteractiveMediaRef {
+  link?: string;
+  id?: string;
+}
+
+export interface InteractiveHeader {
+  type: 'text' | 'image' | 'video' | 'document';
+  text?: string;
+  image?: InteractiveMediaRef;
+  video?: InteractiveMediaRef;
+  document?: InteractiveMediaRef;
+}
+
+export interface InteractiveBody {
+  text: string;
+}
+
+export interface InteractiveFooter {
+  text: string;
+}
+
+export interface InteractiveReply {
+  id: string;
+  title: string;
+}
+
+export interface InteractiveReplyButton {
+  type: 'reply';
+  reply: InteractiveReply;
+}
+
+export interface InteractiveRow {
+  id: string;
+  title: string;
+  description?: string;
+}
+
+export interface InteractiveSection {
+  title: string;
+  rows?: InteractiveRow[];
+  productItems?: { productRetailerId: string }[];
+}
+
+export interface InteractiveParameters {
+  displayText: string;
+  url: string;
+}
+
+export interface InteractiveAction {
+  buttons?: InteractiveReplyButton[];
+  button?: string;
+  sections?: InteractiveSection[];
+  name?: string;
+  parameters?: InteractiveParameters;
+  catalogId?: string;
+  productRetailerId?: string;
+}
+
+export interface InteractivePayload {
+  type: InteractiveType;
+  header?: InteractiveHeader;
+  body: InteractiveBody;
+  footer?: InteractiveFooter;
+  action: InteractiveAction;
+}
+
+// ─── Unified Send Request ────────────────────────────────────
+
+export interface SendMessageRequest {
+  to: string;
+  messageType: MessageType;
+  text?: TextPayload;
+  image?: MediaPayload;
+  video?: MediaPayload;
+  audio?: MediaPayload;
+  document?: MediaPayload;
+  sticker?: MediaPayload;
+  location?: LocationPayload;
+  contacts?: ContactCardPayload[];
+  interactive?: InteractivePayload;
+  reaction?: ReactionPayload;
+  template?: TemplatePayload;
+  context?: ContextPayload;
+  contactId?: string;
+  campaignId?: string;
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  CONTACTS
+// ═══════════════════════════════════════════════════════════════
 
 export interface ContactRequest {
   name: string;
@@ -40,22 +251,16 @@ export interface ContactResponse {
   phone: string;
   tags?: string[];
   metadata?: Record<string, string>;
-  // Backend does not currently return these, so mark optional
-  email?: string; 
+  email?: string;
   createdAt?: string;
   updatedAt?: string;
 }
 
-// Alias for backward compatibility
 export type Contact = ContactResponse;
 
-export interface TemplateRequest {
-  name: string;
-  content: string;
-  type: string; // Backend accepts generic string, usually TEXT, MEDIA, INTERACTIVE
-  languageCode?: 'en' | 'hi';
-  provider_template_id?: string; // Match @JsonProperty("provider_template_id")
-}
+// ═══════════════════════════════════════════════════════════════
+//  TEMPLATES
+// ═══════════════════════════════════════════════════════════════
 
 export type TemplateCategory = 'MARKETING' | 'UTILITY' | 'AUTHENTICATION';
 export type TemplateLanguageCode = 'en' | 'hi' | 'en_US' | 'hi_IN';
@@ -81,6 +286,7 @@ export interface TemplateHeaderComponent {
   format: TemplateHeaderFormat;
   text?: string;
   mediaHandle?: string;
+  sampleValues?: string[];
 }
 
 export interface TemplateBodyComponent {
@@ -105,7 +311,8 @@ export type TemplateComponent =
   | TemplateFooterComponent
   | TemplateButtonsComponent;
 
-export interface AdvancedTemplateRequest {
+/** Request DTO for creating/updating templates (component-based) */
+export interface TemplateRequest {
   name: string;
   category: TemplateCategory;
   language_code: TemplateLanguageCode;
@@ -147,16 +354,20 @@ export interface Template {
   type: string;
   providerTemplateId?: string;
   active: boolean;
-  createdAt?: string; // Backend sends OffsetDateTime, serialized as string
-  // Fields used in UI but potentially missing in backend response
+  createdAt?: string;
   status?: string;
   language?: string;
   languageCode?: string;
   category?: TemplateCategory;
+  qualityRating?: string;
   componentsJson?: string;
   exampleValuesJson?: string;
   rawTemplateJson?: string;
 }
+
+// ═══════════════════════════════════════════════════════════════
+//  CAMPAIGNS
+// ═══════════════════════════════════════════════════════════════
 
 export interface Campaign {
   id: string;
@@ -168,10 +379,26 @@ export interface Campaign {
   processedContacts?: number;
 }
 
+// ═══════════════════════════════════════════════════════════════
+//  DASHBOARD
+// ═══════════════════════════════════════════════════════════════
+
 export interface DashboardStats {
   totalContacts: number;
   activeCampaigns: number;
   messagesSent: number;
   failedMessages: number;
   recentCampaigns: Campaign[];
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  PAGINATION (for future use)
+// ═══════════════════════════════════════════════════════════════
+
+export interface PaginatedResponse<T> {
+  content: T[];
+  totalElements: number;
+  totalPages: number;
+  number: number;
+  size: number;
 }
