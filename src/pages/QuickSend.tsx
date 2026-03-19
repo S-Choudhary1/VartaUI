@@ -194,37 +194,89 @@ const QuickSend = () => {
       );
     };
 
-    // Text
+    // Text — handle both outgoing payload format and incoming webhook format
+    if (type === 'text') {
+      const textObj = payload.text;
+      if (textObj && typeof textObj === 'object') {
+        const body = getStringValue((textObj as Record<string, unknown>).body);
+        if (body) return body;
+      }
+      // Normalized responseJson format or flat payload
+      return getStringValue(response.text) || getStringValue(payload.body) || 'Text message';
+    }
+    // Also handle if payload.text exists without explicit type
     const textObj = payload.text;
     if (textObj && typeof textObj === 'object') {
       const body = getStringValue((textObj as Record<string, unknown>).body);
       if (body) return body;
     }
-    if (type === 'text') {
-      return getStringValue(payload.body) || getStringValue(response.text) || 'Text message';
-    }
 
     // Template
     if (type === 'template' || getStringValue(payload.templateName)) {
       const templateName = getStringValue(payload.templateName) || getStringValue((payload.template as Record<string, unknown>)?.name);
-      const body = getStringValue(payload.body) || getStringValue((payload.template as Record<string, unknown>)?.body);
       const variableSource =
         payload.variables && typeof payload.variables === 'object'
           ? (payload.variables as Record<string, unknown>)
           : {};
-      const renderedBody = body
-        ? body.replace(/\{\{\s*([^}]+?)\s*\}\}/g, (_match, key: string) => {
-            const raw = variableSource[key];
-            if (raw === undefined || raw === null) return `{{${key}}}`;
-            return String(raw);
-          })
-        : undefined;
+      const resolveVars = (text: string) =>
+        text.replace(/\{\{\s*([^}]+?)\s*\}\}/g, (_m, key: string) => {
+          const raw = variableSource[key];
+          return raw === undefined || raw === null ? `{{${key}}}` : String(raw);
+        });
+
+      // Try to parse body as components JSON (from Template entity's contentJson)
+      const bodyRaw = payload.body;
+      let headerText = '';
+      let bodyText = '';
+      let footerText = '';
+      let buttons: Array<Record<string, unknown>> = [];
+
+      if (typeof bodyRaw === 'string') {
+        try {
+          const parsed = JSON.parse(bodyRaw);
+          if (Array.isArray(parsed)) {
+            // Components array format: [{type:"HEADER",...},{type:"BODY",...},{type:"FOOTER",...},{type:"BUTTONS",...}]
+            for (const comp of parsed) {
+              if (comp.type === 'HEADER' && comp.text) headerText = resolveVars(comp.text);
+              if (comp.type === 'BODY' && comp.text) bodyText = resolveVars(comp.text);
+              if (comp.type === 'FOOTER' && comp.text) footerText = comp.text;
+              if (comp.type === 'BUTTONS' && Array.isArray(comp.buttons)) buttons = comp.buttons;
+            }
+          }
+        } catch {
+          // Not JSON — treat as plain body text
+          bodyText = resolveVars(bodyRaw);
+        }
+        if (!bodyText) bodyText = resolveVars(bodyRaw);
+      }
+
+      // Fallback: body directly on payload
+      if (!bodyText && typeof bodyRaw !== 'string') {
+        const fallback = getStringValue((payload.template as Record<string, unknown>)?.body) || '';
+        bodyText = resolveVars(fallback);
+      }
+
       return (
-        <div>
-          <span className="font-semibold text-xs text-gray-500 uppercase block mb-1">
+        <div className="space-y-1">
+          <span className="font-semibold text-xs text-gray-500 uppercase block">
             Template: {templateName || 'template_message'}
           </span>
-          <span className="whitespace-pre-wrap">{renderedBody || body || 'Template message sent'}</span>
+          {headerText && (
+            <div className="text-xs font-semibold text-gray-600 border-b border-gray-200 pb-1">{headerText}</div>
+          )}
+          <span className="whitespace-pre-wrap">{bodyText || 'Template message sent'}</span>
+          {footerText && (
+            <div className="text-xs text-gray-400 border-t border-gray-200 pt-1 mt-1">{footerText}</div>
+          )}
+          {buttons.length > 0 && (
+            <div className="flex flex-wrap gap-1 pt-1 border-t border-gray-200 mt-1">
+              {buttons.map((btn, i) => (
+                <span key={i} className="inline-block px-3 py-1 bg-white border border-gray-300 rounded-full text-xs text-blue-600 font-medium">
+                  {getStringValue(btn.text) || `Button ${i + 1}`}
+                </span>
+              ))}
+            </div>
+          )}
         </div>
       );
     }
@@ -401,9 +453,23 @@ const QuickSend = () => {
       }
 
       // Outgoing interactive (buttons or list)
+      const headerObj = interactive.header && typeof interactive.header === 'object'
+        ? (interactive.header as Record<string, unknown>) : {};
+      const headerType = getStringValue(headerObj.type);
+      const headerTextVal = getStringValue(headerObj.text);
+      const footerObj = interactive.footer && typeof interactive.footer === 'object'
+        ? (interactive.footer as Record<string, unknown>) : {};
+      const footerText = getStringValue(footerObj.text);
+
       return (
         <div className="space-y-2">
+          {headerTextVal && headerType === 'text' && (
+            <div className="text-xs font-semibold text-gray-600">{headerTextVal}</div>
+          )}
           {bodyText && <p>{bodyText}</p>}
+          {footerText && (
+            <div className="text-xs text-gray-400">{footerText}</div>
+          )}
           {interactiveType === 'button' && Array.isArray(actionObj.buttons) && (
             <div className="flex flex-wrap gap-1 mt-1">
               {(actionObj.buttons as Array<Record<string, unknown>>).map((btn, i) => {

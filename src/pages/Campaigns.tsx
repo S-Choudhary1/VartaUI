@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { FileSpreadsheet, Calendar, Send, AlertCircle, CheckCircle, Clock, BarChart2, FileText, Download } from 'lucide-react';
 import { createCampaign, getAllCampaigns, exportCampaignResponsesCsv } from '../services/campaignService';
 import { getApprovedMetaTemplates } from '../services/templateService';
-import type { MetaTemplate, Campaign, MetaTemplateComponent } from '../types';
+import { getFlows } from '../services/flowService';
+import type { MetaTemplate, Campaign, MetaTemplateComponent, Flow } from '../types';
 import { useAuth } from '../context/AuthContext';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
@@ -12,6 +13,7 @@ const Campaigns = () => {
   const { user } = useAuth();
   const [templates, setTemplates] = useState<MetaTemplate[]>([]);
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
+  const [flows, setFlows] = useState<Flow[]>([]);
   const [loading, setLoading] = useState(false);
   const [loadingList, setLoadingList] = useState(true);
   const [successMsg, setSuccessMsg] = useState('');
@@ -22,11 +24,13 @@ const Campaigns = () => {
   // Form State
   const [campaignName, setCampaignName] = useState('');
   const [selectedTemplate, setSelectedTemplate] = useState('');
+  const [selectedFlow, setSelectedFlow] = useState('');
   const [csvFile, setCsvFile] = useState<File | null>(null);
   const [scheduledAt, setScheduledAt] = useState('');
 
   useEffect(() => {
     getApprovedMetaTemplates().then(setTemplates).catch(console.error);
+    getFlows().then(f => setFlows(f.filter(fl => fl.status === 'ACTIVE'))).catch(console.error);
     fetchCampaigns();
   }, []);
 
@@ -132,6 +136,9 @@ const Campaigns = () => {
         formData.append('scheduledAt', new Date(scheduledAt).toISOString());
       }
       formData.append('uploadedBy', user?.id || '00000000-0000-0000-0000-000000000000');
+      if (selectedFlow) {
+        formData.append('flowId', selectedFlow);
+      }
 
       await createCampaign(formData);
       setSuccessMsg('Campaign created successfully!');
@@ -139,6 +146,7 @@ const Campaigns = () => {
       // Reset form
       setCampaignName('');
       setSelectedTemplate('');
+      setSelectedFlow('');
       setCsvFile(null);
       setScheduledAt('');
       const fileInput = document.getElementById('csvInput') as HTMLInputElement;
@@ -307,6 +315,27 @@ const Campaigns = () => {
               <p className="mt-2 text-xs text-gray-500">
                   Required columns: <code className="bg-gray-100 px-1 py-0.5 rounded text-gray-700">Name</code>, <code className="bg-gray-100 px-1 py-0.5 rounded text-gray-700">PhoneNumber</code> (with country code)
               </p>
+            </div>
+
+            {/* Flow Selection */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1.5">Attach Flow (Optional)</label>
+              <div className="relative">
+                <select
+                  value={selectedFlow}
+                  onChange={(e) => setSelectedFlow(e.target.value)}
+                  className="w-full h-10 px-3 py-2 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-whatsapp-teal focus:border-transparent appearance-none"
+                >
+                  <option value="">No flow</option>
+                  {flows.map(f => (
+                    <option key={f.id} value={f.id}>{f.name}</option>
+                  ))}
+                </select>
+                <div className="absolute inset-y-0 right-0 flex items-center px-2 pointer-events-none">
+                  <svg className="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path></svg>
+                </div>
+              </div>
+              <p className="text-xs text-gray-500 mt-1">Contacts will be enrolled in this flow after the campaign message is sent.</p>
             </div>
 
             {/* Scheduling */}

@@ -8,6 +8,8 @@ import Contacts from './pages/Contacts';
 import TemplateStudio from './pages/TemplateStudio';
 import Campaigns from './pages/Campaigns';
 import QuickSend from './pages/QuickSend';
+import Flows from './pages/Flows';
+import FlowBuilder from './pages/FlowBuilder';
 
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   const { isAuthenticated, loading } = useAuth();
@@ -62,6 +64,10 @@ function App() {
             <Route path="/campaigns" element={<Campaigns />} />
             <Route path="/templates" element={<TemplateStudio />} />
             <Route path="/messages" element={<QuickSend />} />
+            <Route path="/flows" element={<Flows />} />
+            <Route path="/flows/new" element={<FlowBuilder />} />
+            <Route path="/flows/:id" element={<FlowBuilder />} />
+            <Route path="/flows/:id/analytics" element={<FlowBuilder />} />
             <Route path="/" element={<Navigate to="/dashboard" replace />} />
           </Route>
         </Routes>

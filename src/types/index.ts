@@ -377,6 +377,7 @@ export interface Campaign {
   createdAt: string;
   totalContacts?: number;
   processedContacts?: number;
+  flowId?: string;
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -401,4 +402,109 @@ export interface PaginatedResponse<T> {
   totalPages: number;
   number: number;
   size: number;
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  FLOWS
+// ═══════════════════════════════════════════════════════════════
+
+export type FlowStatus = 'DRAFT' | 'ACTIVE' | 'PAUSED' | 'ARCHIVED';
+export type FlowTriggerType = 'KEYWORD' | 'CAMPAIGN' | 'MANUAL';
+export type FlowNodeType = 'START' | 'SEND_MESSAGE' | 'WAIT_FOR_REPLY' | 'CONDITION' | 'END';
+export type FlowConditionMatchType = 'EXACT' | 'CONTAINS' | 'BUTTON_ID' | 'LIST_ID' | 'REGEX' | 'DEFAULT';
+
+export interface FlowCondition {
+  id: string;
+  matchType: FlowConditionMatchType;
+  value?: string;
+  label: string;
+}
+
+export interface FlowNodeData {
+  triggerType?: FlowTriggerType;
+  keywords?: string[];
+  messageType?: string;
+  text?: { body: string };
+  template?: { templateId: string; templateName?: string; variables?: Record<string, string> };
+  templateButtons?: MetaTemplateButton[];
+  interactive?: InteractivePayload;
+  timeoutSeconds?: number;
+  conditions?: FlowCondition[];
+}
+
+export interface FlowNode {
+  id: string;
+  type: FlowNodeType;
+  data: FlowNodeData;
+  position: { x: number; y: number };
+}
+
+export interface FlowEdge {
+  id: string;
+  source: string;
+  target: string;
+  sourceHandle?: string;
+  label?: string;
+  style?: { stroke?: string; strokeWidth?: number };
+}
+
+export interface FlowDefinition {
+  nodes: FlowNode[];
+  edges: FlowEdge[];
+}
+
+export interface Flow {
+  id: string;
+  name: string;
+  description?: string;
+  status: FlowStatus;
+  triggerType?: FlowTriggerType;
+  triggerKeywords?: string;
+  definitionJson?: string;
+  version?: number;
+  createdBy?: string;
+  createdAt: string;
+  updatedAt?: string;
+}
+
+export interface FlowRequest {
+  name: string;
+  description?: string;
+  triggerType?: string;
+  triggerKeywords?: string;
+  definitionJson?: string;
+}
+
+export interface FlowExecution {
+  id: string;
+  flowId: string;
+  contactId: string;
+  campaignId?: string;
+  currentNodeId?: string;
+  status: string;
+  startedAt: string;
+  updatedAt?: string;
+  completedAt?: string;
+  steps?: FlowStepHistory[];
+}
+
+export interface FlowStepHistory {
+  id: string;
+  nodeId: string;
+  nodeType?: string;
+  action: string;
+  messageId?: string;
+  responseData?: string;
+  matchedCondition?: string;
+  createdAt: string;
+}
+
+export interface FlowAnalytics {
+  totalExecutions: number;
+  completed: number;
+  active: number;
+  waiting: number;
+  failed: number;
+  timedOut: number;
+  contactsPerNode: Record<string, number>;
 }

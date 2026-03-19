@@ -2,17 +2,18 @@ import React, { useState, useEffect } from 'react';
 import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import api from '../services/api';
-import { 
-  LayoutDashboard, 
-  Users, 
-  MessageSquareText, 
-  Send, 
-  FileText, 
+import {
+  LayoutDashboard,
+  Users,
+  MessageSquareText,
+  Send,
+  FileText,
   LogOut,
   Menu,
   X,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  GitBranch
 } from 'lucide-react';
 import { cn } from '../components/ui/Button';
 
@@ -44,6 +45,7 @@ const DashboardLayout = () => {
     { path: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { path: '/contacts', label: 'Contacts', icon: Users },
     { path: '/campaigns', label: 'Campaigns', icon: Send },
+    { path: '/flows', label: 'Flows', icon: GitBranch },
     { path: '/templates', label: 'Templates', icon: FileText },
     { path: '/messages', label: 'Quick Send', icon: MessageSquareText },
   ];
