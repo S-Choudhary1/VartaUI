@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const API_URL = 'https://vartaai-production.up.railway.app/api/v1';
+const API_URL = 'http://localhost:8080/api/v1';
 
 const api = axios.create({
   baseURL: API_URL,
@@ -17,15 +17,21 @@ api.interceptors.request.use(
       config.headers.Authorization = `Bearer ${token}`;
     }
 
-    const userStr = localStorage.getItem('user');
-    if (userStr) {
-        try {
-            const user = JSON.parse(userStr);
-            if (user.clientId) {
-                config.headers['X-Client-Id'] = user.clientId;
+    // Impersonation: use impersonatedClientId if set, otherwise user's clientId
+    const impersonatedClientId = localStorage.getItem('impersonatedClientId');
+    if (impersonatedClientId) {
+        config.headers['X-Client-Id'] = impersonatedClientId;
+    } else {
+        const userStr = localStorage.getItem('user');
+        if (userStr) {
+            try {
+                const user = JSON.parse(userStr);
+                if (user.clientId) {
+                    config.headers['X-Client-Id'] = user.clientId;
+                }
+            } catch (e) {
+                // ignore
             }
-        } catch (e) {
-            // ignore
         }
     }
 

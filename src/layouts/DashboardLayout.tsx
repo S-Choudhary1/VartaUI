@@ -13,7 +13,11 @@ import {
   X,
   ChevronLeft,
   ChevronRight,
-  GitBranch
+  GitBranch,
+  Shield,
+  Building2,
+  Settings,
+  AlertTriangle
 } from 'lucide-react';
 import { cn } from '../components/ui/Button';
 
@@ -41,6 +45,9 @@ const DashboardLayout = () => {
     setMobileMenuOpen(false);
   }, [location.pathname]);
 
+  const isSuperAdmin = user?.role === 'SUPER_ADMIN';
+  const isImpersonating = !!localStorage.getItem('impersonatedClientId');
+
   const navItems = [
     { path: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { path: '/contacts', label: 'Contacts', icon: Users },
@@ -48,11 +55,23 @@ const DashboardLayout = () => {
     { path: '/flows', label: 'Flows', icon: GitBranch },
     { path: '/templates', label: 'Templates', icon: FileText },
     { path: '/messages', label: 'Quick Send', icon: MessageSquareText },
+    { path: '/settings', label: 'Settings', icon: Settings },
+    ...(isSuperAdmin ? [
+      { path: '/admin', label: 'Admin Dashboard', icon: Shield },
+      { path: '/admin/clients', label: 'Clients', icon: Building2 },
+    ] : []),
   ];
 
   const handleLogout = () => {
+    localStorage.removeItem('impersonatedClientId');
     logout();
     navigate('/login');
+  };
+
+  const handleExitImpersonation = () => {
+    localStorage.removeItem('impersonatedClientId');
+    navigate('/admin/clients');
+    window.location.reload();
   };
 
   const handleOpenProfile = async () => {
@@ -178,6 +197,21 @@ const DashboardLayout = () => {
 
       {/* Main Content */}
       <main className="flex-1 flex flex-col h-screen overflow-hidden bg-gray-50/50 w-full">
+        {/* Impersonation Banner */}
+        {isImpersonating && (
+          <div className="bg-yellow-400 text-yellow-900 px-4 py-2 flex items-center justify-between text-sm font-medium z-40">
+            <div className="flex items-center gap-2">
+              <AlertTriangle className="w-4 h-4" />
+              <span>You are impersonating a client. Data shown belongs to the impersonated tenant.</span>
+            </div>
+            <button
+              onClick={handleExitImpersonation}
+              className="px-3 py-1 bg-yellow-600 text-white rounded-md hover:bg-yellow-700 transition-colors text-xs font-semibold"
+            >
+              Exit Impersonation
+            </button>
+          </div>
+        )}
         <header className="h-16 bg-white border-b border-gray-200 flex items-center justify-between px-4 sm:px-6 shadow-sm z-30">
           <div className="flex items-center gap-4">
           <button 

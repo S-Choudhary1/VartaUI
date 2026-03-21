@@ -405,6 +405,58 @@ export interface PaginatedResponse<T> {
 }
 
 // ═══════════════════════════════════════════════════════════════
+//  ADMIN
+// ═══════════════════════════════════════════════════════════════
+
+export interface AdminStats {
+  totalClients: number;
+  totalContacts: number;
+  totalMessages: number;
+  totalCampaigns: number;
+  activeFlows: number;
+}
+
+export interface ClientDetail {
+  id: string;
+  name: string;
+  phoneNumberId?: string;
+  wabaId?: string;
+  createdAt: string;
+}
+
+export interface ClientCreateRequest {
+  name: string;
+  adminUsername: string;
+  adminPassword: string;
+  language?: string;
+}
+
+export interface AdminUser {
+  id: string;
+  username: string;
+  role: string;
+  clientId?: string;
+  clientName?: string;
+  createdAt: string;
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  WHATSAPP ONBOARDING
+// ═══════════════════════════════════════════════════════════════
+
+export interface WhatsAppOnboardRequest {
+  code: string;
+  wabaId: string;
+  phoneNumberId: string;
+}
+
+export interface WhatsAppStatus {
+  connected: boolean;
+  wabaId?: string;
+  phoneNumberId?: string;
+}
+
+// ═══════════════════════════════════════════════════════════════
 //  FLOWS
 // ═══════════════════════════════════════════════════════════════
 

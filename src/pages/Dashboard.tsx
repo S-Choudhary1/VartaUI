@@ -1,10 +1,16 @@
 import React, { useEffect, useState } from 'react';
-import { Users, Send, CheckCircle, AlertCircle, ArrowUpRight } from 'lucide-react';
+import { Users, Send, CheckCircle, AlertCircle, ArrowUpRight, Wifi } from 'lucide-react';
 import { getDashboardStats } from '../services/dashboardService';
-import type { DashboardStats } from '../types';
+import { getWhatsAppStatus } from '../services/whatsappService';
+import type { DashboardStats, WhatsAppStatus } from '../types';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { Link } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
+import EmbeddedSignup from '../components/whatsapp/EmbeddedSignup';
+
+const META_APP_ID = '3093323707495695';
+const META_CONFIG_ID = '1384423560379918';
 
 interface StatCardProps {
   title: string;
@@ -39,8 +45,13 @@ const StatCard = ({ title, value, icon: Icon, color, textColor, bgColor }: StatC
 );
 
 const Dashboard = () => {
+  const { user } = useAuth();
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [loading, setLoading] = useState(true);
+  const [waStatus, setWaStatus] = useState<WhatsAppStatus | null>(null);
+  const [showSignup, setShowSignup] = useState(false);
+
+  const isSuperAdminWithoutClient = user?.role === 'SUPER_ADMIN' && !user?.clientId && !localStorage.getItem('impersonatedClientId');
 
   useEffect(() => {
     const fetchStats = async () => {
@@ -54,7 +65,18 @@ const Dashboard = () => {
       }
     };
 
+    const fetchWaStatus = async () => {
+      if (isSuperAdminWithoutClient) return;
+      try {
+        const data = await getWhatsAppStatus();
+        setWaStatus(data);
+      } catch {
+        // Silently fail — banner just won't show
+      }
+    };
+
     fetchStats();
+    fetchWaStatus();
   }, []);
 
   if (loading) {
@@ -65,8 +87,38 @@ const Dashboard = () => {
     );
   }
 
+  const handleOnboardSuccess = (newStatus: WhatsAppStatus) => {
+    setWaStatus(newStatus);
+    setShowSignup(false);
+  };
+
   return (
     <div className="space-y-8">
+      {/* WhatsApp Connection Banner */}
+      {waStatus && !waStatus.connected && !isSuperAdminWithoutClient && (
+        <div className="bg-gradient-to-r from-yellow-50 to-orange-50 border border-yellow-200 rounded-xl p-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+          <div className="flex items-start gap-3">
+            <div className="p-2 bg-yellow-100 rounded-lg">
+              <Wifi className="w-6 h-6 text-yellow-600" />
+            </div>
+            <div>
+              <h3 className="font-semibold text-gray-900">WhatsApp Not Connected</h3>
+              <p className="text-sm text-gray-600 mt-0.5">Connect your WhatsApp Business Account to start sending messages.</p>
+            </div>
+          </div>
+          <Button onClick={() => setShowSignup(true)}>Connect WhatsApp</Button>
+        </div>
+      )}
+
+      {showSignup && (
+        <EmbeddedSignup
+          onClose={() => setShowSignup(false)}
+          onSuccess={handleOnboardSuccess}
+          appId={META_APP_ID}
+          configId={META_CONFIG_ID}
+        />
+      )}
+
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
       <div>
           <h1 className="text-3xl font-bold text-gray-900 tracking-tight">Dashboard</h1>
