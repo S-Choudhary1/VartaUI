@@ -24,12 +24,14 @@ const EmbeddedSignup: React.FC<EmbeddedSignupProps> = ({ onClose, onSuccess, app
     }
 
     window.fbAsyncInit = () => {
+      console.log('[EmbeddedSignup] FB SDK loaded, initializing with appId:', appId);
       window.FB?.init({
         appId,
         cookie: true,
         xfbml: true,
         version: 'v22.0',
       });
+      console.log('[EmbeddedSignup] FB.init() complete');
       setSdkLoaded(true);
     };
 
@@ -52,16 +54,20 @@ const EmbeddedSignup: React.FC<EmbeddedSignupProps> = ({ onClose, onSuccess, app
 
       try {
         const data = typeof event.data === 'string' ? JSON.parse(event.data) : event.data;
+        console.log('[EmbeddedSignup] postMessage received:', { origin: event.origin, type: data.type, data });
         if (data.type === 'WA_EMBEDDED_SIGNUP') {
           const { data: signupData } = data;
+          console.log('[EmbeddedSignup] WA_EMBEDDED_SIGNUP data:', signupData);
           if (signupData?.waba_id && signupData?.phone_number_id) {
-            // Store for use when FB.login callback fires
+            console.log('[EmbeddedSignup] Captured waba_id:', signupData.waba_id, 'phone_number_id:', signupData.phone_number_id);
             sessionStorage.setItem('wa_signup_waba_id', signupData.waba_id);
             sessionStorage.setItem('wa_signup_phone_number_id', signupData.phone_number_id);
+          } else {
+            console.warn('[EmbeddedSignup] WA_EMBEDDED_SIGNUP missing waba_id or phone_number_id:', signupData);
           }
         }
       } catch {
-        // Not our message
+        // Not a JSON message — ignore
       }
     };
 
@@ -70,39 +76,51 @@ const EmbeddedSignup: React.FC<EmbeddedSignupProps> = ({ onClose, onSuccess, app
   }, []);
 
   const handleLogin = useCallback(() => {
-    if (!window.FB) return;
+    if (!window.FB) {
+      console.error('[EmbeddedSignup] FB SDK not available');
+      return;
+    }
 
+    console.log('[EmbeddedSignup] Starting FB.login with config_id:', configId);
     setStatus('loading');
 
     window.FB.login(
-      async (response: FBLoginResponse) => {
+      function (response: FBLoginResponse) {
+        console.log('[EmbeddedSignup] FB.login callback fired, status:', response.status);
+        console.log('[EmbeddedSignup] authResponse:', response.authResponse);
+
         if (response.authResponse?.code) {
+          console.log('[EmbeddedSignup] Got auth code:', response.authResponse.code.substring(0, 20) + '...');
+
           const wabaId = sessionStorage.getItem('wa_signup_waba_id') || '';
           const phoneNumberId = sessionStorage.getItem('wa_signup_phone_number_id') || '';
+          console.log('[EmbeddedSignup] Session data — wabaId:', wabaId, 'phoneNumberId:', phoneNumberId);
 
           if (!wabaId || !phoneNumberId) {
+            console.error('[EmbeddedSignup] Missing session data. wabaId:', wabaId, 'phoneNumberId:', phoneNumberId);
             setStatus('error');
             setErrorMsg('Could not retrieve WhatsApp Business Account details. Please try again.');
             return;
           }
 
-          try {
-            const result = await onboardWhatsApp({
-              code: response.authResponse.code,
-              wabaId,
-              phoneNumberId,
-            });
-
+          console.log('[EmbeddedSignup] Sending onboard request to backend...');
+          onboardWhatsApp({
+            code: response.authResponse.code,
+            wabaId,
+            phoneNumberId,
+          }).then((result) => {
+            console.log('[EmbeddedSignup] Onboard success:', result);
             sessionStorage.removeItem('wa_signup_waba_id');
             sessionStorage.removeItem('wa_signup_phone_number_id');
-
             setStatus('success');
             onSuccess(result);
-          } catch (err) {
+          }).catch((err) => {
+            console.error('[EmbeddedSignup] Onboard failed:', err);
             setStatus('error');
             setErrorMsg(err instanceof Error ? err.message : 'Onboarding failed');
-          }
+          });
         } else {
+          console.warn('[EmbeddedSignup] FB.login failed or cancelled. Full response:', response);
           setStatus('error');
           setErrorMsg('Facebook login was cancelled or failed.');
         }
