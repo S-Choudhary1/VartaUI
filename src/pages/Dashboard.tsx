@@ -10,7 +10,7 @@ import { useAuth } from '../context/AuthContext';
 import EmbeddedSignup from '../components/whatsapp/EmbeddedSignup';
 
 const META_APP_ID = '3093323707495695';
-const META_CONFIG_ID = '1384423560379918';
+const META_CONFIG_ID = '1494192019089832';
 
 interface StatCardProps {
   title: string;
