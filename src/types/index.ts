@@ -421,7 +421,21 @@ export interface ClientDetail {
   name: string;
   phoneNumberId?: string;
   wabaId?: string;
+  language?: string;
+  onboardingStatus?: OnboardingStatus;
+  businessName?: string;
+  verifiedName?: string;
+  qualityRating?: string;
+  messagingLimitTier?: string;
+  phoneStatus?: string;
+  businessVerificationStatus?: string;
+  accountReviewStatus?: string;
+  billingStatus?: string;
+  provisioningError?: string;
+  tokenExpiresAt?: string;
+  lastSyncedAt?: string;
   createdAt: string;
+  unresolvedAlertCount?: number;
 }
 
 export interface ClientCreateRequest {
@@ -450,10 +464,53 @@ export interface WhatsAppOnboardRequest {
   phoneNumberId: string;
 }
 
+export type OnboardingStatus =
+  | 'NOT_STARTED'
+  | 'TOKEN_OBTAINED'
+  | 'TOKEN_EXCHANGED'
+  | 'WEBHOOK_SUBSCRIBED'
+  | 'PROFILE_SYNCED'
+  | 'READY'
+  | 'FAILED';
+
 export interface WhatsAppStatus {
   connected: boolean;
   wabaId?: string;
   phoneNumberId?: string;
+  onboardingStatus?: OnboardingStatus;
+  businessName?: string;
+  verifiedName?: string;
+  qualityRating?: string;
+  messagingLimitTier?: string;
+  phoneStatus?: string;
+  businessVerificationStatus?: string;
+  accountReviewStatus?: string;
+  billingStatus?: string;
+  provisioningError?: string;
+  unresolvedAlertCount?: number;
+}
+
+export type AlertSeverity = 'INFO' | 'WARNING' | 'CRITICAL';
+export type AlertCategory =
+  | 'ACCOUNT_UPDATE'
+  | 'ACCOUNT_REVIEW'
+  | 'PHONE_QUALITY'
+  | 'PHONE_NAME_UPDATE'
+  | 'MESSAGING_LIMIT'
+  | 'TEMPLATE_STATUS'
+  | 'SECURITY'
+  | 'BILLING'
+  | 'UNKNOWN';
+
+export interface AccountAlert {
+  id: string;
+  category: AlertCategory;
+  severity: AlertSeverity;
+  title: string;
+  message: string;
+  metaEventField?: string;
+  resolved: boolean;
+  createdAt: string;
 }
 
 // ═══════════════════════════════════════════════════════════════

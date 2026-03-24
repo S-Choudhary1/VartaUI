@@ -1,5 +1,5 @@
 import api from './api';
-import type { AdminStats, ClientDetail, ClientCreateRequest, AdminUser, Campaign } from '../types';
+import type { AdminStats, ClientDetail, ClientCreateRequest, AdminUser, Campaign, AccountAlert } from '../types';
 
 export const getAdminStats = async (): Promise<AdminStats> => {
   const response = await api.get<AdminStats>('/admin/stats');
@@ -33,4 +33,9 @@ export const updateClient = async (id: string, data: Partial<ClientDetail>): Pro
 
 export const deleteClient = async (id: string): Promise<void> => {
   await api.delete(`/clients/${id}`);
+};
+
+export const getClientAlerts = async (clientId: string): Promise<AccountAlert[]> => {
+  const response = await api.get<AccountAlert[]>(`/admin/clients/${clientId}/alerts`);
+  return response.data;
 };

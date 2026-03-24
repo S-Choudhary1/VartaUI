@@ -1,16 +1,39 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, Play, Pause, Trash2, GitBranch, AlertCircle, BarChart2 } from 'lucide-react';
+import { Plus, Play, Pause, Trash2, GitBranch, AlertCircle, BarChart2, Pencil, Layers, Calendar } from 'lucide-react';
 import { getFlows, deleteFlow, activateFlow, pauseFlow } from '../services/flowService';
 import type { Flow } from '../types';
 import { Button } from '../components/ui/Button';
-import { Card } from '../components/ui/Card';
+import { Card, CardContent } from '../components/ui/Card';
+import { Badge } from '../components/ui/Badge';
+import { EmptyState } from '../components/ui/EmptyState';
+import { SearchBar } from '../components/ui/SearchBar';
 
-const statusColors: Record<string, string> = {
-  DRAFT: 'bg-gray-50 text-gray-700 border-gray-200',
-  ACTIVE: 'bg-green-50 text-green-700 border-green-100',
-  PAUSED: 'bg-yellow-50 text-yellow-700 border-yellow-100',
-  ARCHIVED: 'bg-red-50 text-red-700 border-red-100',
+const statusBadgeVariant = (status: string): 'success' | 'warning' | 'danger' | 'default' => {
+  switch (status) {
+    case 'ACTIVE': return 'success';
+    case 'PAUSED': return 'warning';
+    case 'ARCHIVED': return 'danger';
+    default: return 'default';
+  }
+};
+
+const triggerBadgeVariant = (type?: string): 'info' | 'warning' | 'default' => {
+  switch (type) {
+    case 'KEYWORD': return 'info';
+    case 'CAMPAIGN': return 'warning';
+    default: return 'default';
+  }
+};
+
+const getStepCount = (flow: Flow): number => {
+  if (!flow.definitionJson) return 0;
+  try {
+    const def = JSON.parse(flow.definitionJson);
+    return Array.isArray(def.nodes) ? def.nodes.length : 0;
+  } catch {
+    return 0;
+  }
 };
 
 const Flows = () => {
@@ -18,6 +41,7 @@ const Flows = () => {
   const [flows, setFlows] = useState<Flow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [search, setSearch] = useState('');
 
   const fetchFlows = async () => {
     setLoading(true);
@@ -57,123 +81,170 @@ const Flows = () => {
     }
   };
 
+  const visibleFlows = flows
+    .filter(f => f.status !== 'ARCHIVED')
+    .filter(f => {
+      if (!search.trim()) return true;
+      const q = search.toLowerCase();
+      return (
+        f.name.toLowerCase().includes(q) ||
+        (f.description || '').toLowerCase().includes(q) ||
+        (f.triggerType || '').toLowerCase().includes(q)
+      );
+    });
+
   return (
     <div className="space-y-6">
+      {/* Page Header */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900 tracking-tight">Flows</h1>
-          <p className="text-gray-500 mt-1">Build automated conversation sequences for your contacts.</p>
+          <h1 className="text-2xl font-semibold text-gray-900 tracking-tight">Flows</h1>
+          <p className="text-sm text-gray-500 mt-1">Build automated conversation sequences for your contacts.</p>
         </div>
-        <Button onClick={() => navigate('/flows/new')}>
-          <Plus className="w-4 h-4 mr-2" />
-          New Flow
+        <Button onClick={() => navigate('/flows/new')} size="md">
+          <Plus className="w-4 h-4" />
+          Create Flow
         </Button>
       </div>
 
+      {/* Error Alert */}
       {error && (
-        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg flex items-center gap-2">
-          <AlertCircle className="w-5 h-5" />
+        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl flex items-center gap-2.5 text-sm">
+          <AlertCircle className="w-4 h-4 flex-shrink-0" />
           {error}
+          <button onClick={() => setError('')} className="ml-auto text-red-400 hover:text-red-600 text-xs font-medium">Dismiss</button>
         </div>
       )}
 
-      <Card>
-        {loading ? (
-          <div className="p-12 text-center text-gray-500">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-whatsapp-teal mx-auto mb-4" />
-            Loading flows...
-          </div>
-        ) : flows.length === 0 ? (
-          <div className="p-16 text-center flex flex-col items-center">
-            <div className="bg-gray-50 p-6 rounded-full mb-4">
-              <GitBranch className="w-10 h-10 text-gray-300" />
-            </div>
-            <h3 className="text-lg font-medium text-gray-900">No flows yet</h3>
-            <p className="text-gray-500 mt-1 max-w-sm">Create your first automated conversation flow.</p>
-            <Button onClick={() => navigate('/flows/new')} className="mt-6">
-              Create Flow
-            </Button>
-          </div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left">
-              <thead className="bg-gray-50/50 border-b border-gray-100 text-gray-500">
-                <tr>
-                  <th className="px-6 py-4 text-xs font-semibold uppercase tracking-wider">Name</th>
-                  <th className="px-6 py-4 text-xs font-semibold uppercase tracking-wider">Status</th>
-                  <th className="px-6 py-4 text-xs font-semibold uppercase tracking-wider">Trigger</th>
-                  <th className="px-6 py-4 text-xs font-semibold uppercase tracking-wider">Created</th>
-                  <th className="px-6 py-4 text-xs font-semibold uppercase tracking-wider text-right">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100">
-                {flows.filter(f => f.status !== 'ARCHIVED').map((flow) => (
-                  <tr
-                    key={flow.id}
-                    className="hover:bg-gray-50/50 transition-colors cursor-pointer"
-                    onClick={() => navigate(`/flows/${flow.id}`)}
-                  >
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div>
-                        <div className="font-medium text-gray-900">{flow.name}</div>
-                        {flow.description && (
-                          <div className="text-xs text-gray-500 mt-0.5 truncate max-w-xs">{flow.description}</div>
-                        )}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`px-2.5 py-1 text-xs rounded-full font-medium border ${statusColors[flow.status] || statusColors.DRAFT}`}>
-                        {flow.status}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {flow.triggerType === 'KEYWORD' && flow.triggerKeywords ? (
-                        <span className="text-xs">{flow.triggerKeywords}</span>
-                      ) : (
-                        <span className="text-gray-400 text-xs uppercase font-medium tracking-wide">
-                          {flow.triggerType || 'None'}
-                        </span>
+      {/* Search */}
+      {!loading && flows.filter(f => f.status !== 'ARCHIVED').length > 0 && (
+        <SearchBar
+          placeholder="Search flows by name, description, or trigger..."
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          className="max-w-md"
+        />
+      )}
+
+      {/* Content */}
+      {loading ? (
+        <div className="py-24 text-center text-gray-500">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#008069] mx-auto mb-4" />
+          <p className="text-sm">Loading flows...</p>
+        </div>
+      ) : visibleFlows.length === 0 && !search ? (
+        <Card>
+          <EmptyState
+            icon={GitBranch}
+            title="No flows yet"
+            description="Create your first automated conversation flow to engage contacts."
+            action={
+              <Button onClick={() => navigate('/flows/new')}>
+                <Plus className="w-4 h-4" />
+                Create Flow
+              </Button>
+            }
+          />
+        </Card>
+      ) : visibleFlows.length === 0 && search ? (
+        <Card>
+          <EmptyState
+            icon={GitBranch}
+            title="No matching flows"
+            description={`No flows found matching "${search}". Try a different search term.`}
+          />
+        </Card>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {visibleFlows.map((flow) => {
+            const stepCount = getStepCount(flow);
+            return (
+              <Card
+                key={flow.id}
+                className="group relative hover:shadow-md hover:border-gray-200 transition-all duration-200 cursor-pointer"
+                onClick={() => navigate(`/flows/${flow.id}`)}
+              >
+                <CardContent className="p-5 space-y-4">
+                  {/* Header row */}
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0 flex-1">
+                      <h3 className="text-sm font-semibold text-gray-900 truncate">{flow.name}</h3>
+                      {flow.description && (
+                        <p className="text-xs text-gray-500 mt-0.5 line-clamp-2">{flow.description}</p>
                       )}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {flow.createdAt ? new Date(flow.createdAt).toLocaleDateString() : '-'}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-right" onClick={e => e.stopPropagation()}>
-                      <div className="flex items-center justify-end gap-2">
-                        <button
-                          onClick={() => handleToggleStatus(flow)}
-                          className="p-1.5 rounded-lg hover:bg-gray-100 transition-colors"
-                          title={flow.status === 'ACTIVE' ? 'Pause' : 'Activate'}
-                        >
-                          {flow.status === 'ACTIVE' ? (
-                            <Pause className="w-4 h-4 text-yellow-600" />
-                          ) : (
-                            <Play className="w-4 h-4 text-green-600" />
-                          )}
-                        </button>
-                        <button
-                          onClick={() => navigate(`/flows/${flow.id}/analytics`)}
-                          className="p-1.5 rounded-lg hover:bg-gray-100 transition-colors"
-                          title="Analytics"
-                        >
-                          <BarChart2 className="w-4 h-4 text-blue-600" />
-                        </button>
-                        <button
-                          onClick={() => handleDelete(flow)}
-                          className="p-1.5 rounded-lg hover:bg-red-50 transition-colors"
-                          title="Archive"
-                        >
-                          <Trash2 className="w-4 h-4 text-red-500" />
-                        </button>
+                    </div>
+                    <Badge variant={statusBadgeVariant(flow.status)} dot>
+                      {flow.status}
+                    </Badge>
+                  </div>
+
+                  {/* Meta row */}
+                  <div className="flex items-center gap-3 flex-wrap">
+                    <Badge variant={triggerBadgeVariant(flow.triggerType)} size="sm">
+                      {flow.triggerType === 'KEYWORD' && flow.triggerKeywords
+                        ? `Keyword: ${flow.triggerKeywords}`
+                        : flow.triggerType || 'No trigger'}
+                    </Badge>
+                    {stepCount > 0 && (
+                      <div className="flex items-center gap-1 text-xs text-gray-400">
+                        <Layers className="w-3 h-3" />
+                        {stepCount} {stepCount === 1 ? 'step' : 'steps'}
                       </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </Card>
+                    )}
+                  </div>
+
+                  {/* Footer row */}
+                  <div className="flex items-center justify-between pt-3 border-t border-gray-100">
+                    <div className="flex items-center gap-1.5 text-xs text-gray-400">
+                      <Calendar className="w-3 h-3" />
+                      {flow.createdAt ? new Date(flow.createdAt).toLocaleDateString() : '-'}
+                    </div>
+
+                    {/* Action buttons - visible on hover */}
+                    <div
+                      className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-200"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <button
+                        onClick={() => navigate(`/flows/${flow.id}`)}
+                        className="p-1.5 rounded-lg hover:bg-gray-100 transition-colors"
+                        title="Edit"
+                      >
+                        <Pencil className="w-3.5 h-3.5 text-gray-500" />
+                      </button>
+                      <button
+                        onClick={() => handleToggleStatus(flow)}
+                        className="p-1.5 rounded-lg hover:bg-gray-100 transition-colors"
+                        title={flow.status === 'ACTIVE' ? 'Pause' : 'Activate'}
+                      >
+                        {flow.status === 'ACTIVE' ? (
+                          <Pause className="w-3.5 h-3.5 text-amber-500" />
+                        ) : (
+                          <Play className="w-3.5 h-3.5 text-emerald-500" />
+                        )}
+                      </button>
+                      <button
+                        onClick={() => navigate(`/flows/${flow.id}/analytics`)}
+                        className="p-1.5 rounded-lg hover:bg-gray-100 transition-colors"
+                        title="Analytics"
+                      >
+                        <BarChart2 className="w-3.5 h-3.5 text-blue-500" />
+                      </button>
+                      <button
+                        onClick={() => handleDelete(flow)}
+                        className="p-1.5 rounded-lg hover:bg-red-50 transition-colors"
+                        title="Archive"
+                      >
+                        <Trash2 className="w-3.5 h-3.5 text-red-400" />
+                      </button>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 };

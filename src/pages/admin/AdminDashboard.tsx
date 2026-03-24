@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from 'react';
-import { Building2, Users, MessageSquare, Send, GitBranch } from 'lucide-react';
+import { Building2, Users, MessageSquare, Send, GitBranch, BarChart3 } from 'lucide-react';
 import { getAdminStats } from '../../services/adminService';
 import type { AdminStats } from '../../types';
-import { Card, CardContent } from '../../components/ui/Card';
+import { StatCard } from '../../components/ui/StatCard';
 
 const AdminDashboard = () => {
   const [stats, setStats] = useState<AdminStats | null>(null);
@@ -40,39 +40,68 @@ const AdminDashboard = () => {
   }
 
   const statCards = [
-    { label: 'Total Clients', value: stats?.totalClients ?? 0, icon: Building2, bg: 'bg-blue-50', text: 'text-blue-600' },
-    { label: 'Total Contacts', value: stats?.totalContacts ?? 0, icon: Users, bg: 'bg-purple-50', text: 'text-purple-600' },
-    { label: 'Total Messages', value: stats?.totalMessages ?? 0, icon: MessageSquare, bg: 'bg-green-50', text: 'text-green-600' },
-    { label: 'Total Campaigns', value: stats?.totalCampaigns ?? 0, icon: Send, bg: 'bg-orange-50', text: 'text-orange-600' },
-    { label: 'Active Flows', value: stats?.activeFlows ?? 0, icon: GitBranch, bg: 'bg-teal-50', text: 'text-teal-600' },
+    {
+      title: 'Total Clients',
+      value: (stats?.totalClients ?? 0).toLocaleString(),
+      icon: Building2,
+      iconBg: 'bg-blue-50',
+      iconColor: 'text-blue-600',
+    },
+    {
+      title: 'Total Contacts',
+      value: (stats?.totalContacts ?? 0).toLocaleString(),
+      icon: Users,
+      iconBg: 'bg-emerald-50',
+      iconColor: 'text-emerald-600',
+    },
+    {
+      title: 'Total Messages',
+      value: (stats?.totalMessages ?? 0).toLocaleString(),
+      icon: MessageSquare,
+      iconBg: 'bg-violet-50',
+      iconColor: 'text-violet-600',
+    },
+    {
+      title: 'Total Campaigns',
+      value: (stats?.totalCampaigns ?? 0).toLocaleString(),
+      icon: Send,
+      iconBg: 'bg-amber-50',
+      iconColor: 'text-amber-600',
+    },
+    {
+      title: 'Active Flows',
+      value: (stats?.activeFlows ?? 0).toLocaleString(),
+      icon: GitBranch,
+      iconBg: 'bg-[#008069]/10',
+      iconColor: 'text-[#008069]',
+    },
   ];
 
   return (
     <div className="space-y-8">
-      <div>
-        <h1 className="text-3xl font-bold text-gray-900 tracking-tight">Admin Dashboard</h1>
-        <p className="text-gray-500 mt-1">System-wide overview across all tenants.</p>
+      {/* Page Header */}
+      <div className="flex items-center gap-3">
+        <div className="p-2.5 rounded-xl bg-gradient-to-br from-[#008069] to-[#006e5a]">
+          <BarChart3 className="w-5 h-5 text-white" />
+        </div>
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900 tracking-tight">Admin Dashboard</h1>
+          <p className="text-sm text-gray-500 mt-0.5">System-wide overview across all tenants</p>
+        </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-6">
-        {statCards.map((card) => {
-          const Icon = card.icon;
-          return (
-            <Card key={card.label} className="hover:shadow-md transition-shadow duration-200">
-              <CardContent className="p-6">
-                <div className="flex items-start justify-between">
-                  <div>
-                    <p className="text-sm font-medium text-gray-500">{card.label}</p>
-                    <h3 className="text-3xl font-bold text-gray-900 mt-2">{card.value.toLocaleString()}</h3>
-                  </div>
-                  <div className={`p-3 rounded-xl ${card.bg}`}>
-                    <Icon className={`w-6 h-6 ${card.text}`} />
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          );
-        })}
+      {/* Stat Cards Grid */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-5">
+        {statCards.map((card) => (
+          <StatCard
+            key={card.title}
+            title={card.title}
+            value={card.value}
+            icon={card.icon}
+            iconBg={card.iconBg}
+            iconColor={card.iconColor}
+          />
+        ))}
       </div>
     </div>
   );

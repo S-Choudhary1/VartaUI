@@ -8,22 +8,24 @@ import {
   type Edge,
   type Connection,
 } from '@xyflow/react';
-import { ArrowLeft, Save, Play, Pause, Zap, MessageSquare, Clock, GitBranch, CircleStop, CheckCircle } from 'lucide-react';
+import { ArrowLeft, Save, Play, Pause, Zap, MessageSquare, Clock, GitBranch, CircleStop, CheckCircle, GripVertical, Settings2, ChevronDown, ChevronRight } from 'lucide-react';
 import FlowCanvas from '../components/flow/FlowCanvas';
 import NodePropertiesPanel from '../components/flow/NodePropertiesPanel';
 import FlowAnalyticsView from '../components/flow/FlowAnalytics';
 import { Button } from '../components/ui/Button';
+import { Card, CardContent } from '../components/ui/Card';
+import { Badge } from '../components/ui/Badge';
 import { getFlow, createFlow, updateFlow, activateFlow, pauseFlow } from '../services/flowService';
 import type { FlowDefinition, FlowNodeType, FlowStatus, FlowCondition } from '../types';
 
 const CONDITION_COLORS = ['#a855f7', '#3b82f6', '#f97316', '#22c55e', '#ef4444', '#f59e0b'];
 
-const paletteItems: { type: FlowNodeType; label: string; icon: any; color: string }[] = [
-  { type: 'START', label: 'Start', icon: Zap, color: 'bg-green-100 text-green-700 border-green-200' },
-  { type: 'SEND_MESSAGE', label: 'Message', icon: MessageSquare, color: 'bg-blue-100 text-blue-700 border-blue-200' },
-  { type: 'WAIT_FOR_REPLY', label: 'Wait', icon: Clock, color: 'bg-amber-100 text-amber-700 border-amber-200' },
-  { type: 'CONDITION', label: 'Condition', icon: GitBranch, color: 'bg-purple-100 text-purple-700 border-purple-200' },
-  { type: 'END', label: 'End', icon: CircleStop, color: 'bg-red-100 text-red-700 border-red-200' },
+const paletteItems: { type: FlowNodeType; label: string; description: string; icon: any; color: string; iconBg: string }[] = [
+  { type: 'START', label: 'Start', description: 'Entry point', icon: Zap, color: 'border-emerald-200 hover:border-emerald-300', iconBg: 'bg-emerald-50 text-emerald-600' },
+  { type: 'SEND_MESSAGE', label: 'Message', description: 'Send a message', icon: MessageSquare, color: 'border-blue-200 hover:border-blue-300', iconBg: 'bg-blue-50 text-blue-600' },
+  { type: 'WAIT_FOR_REPLY', label: 'Wait', description: 'Wait for reply', icon: Clock, color: 'border-amber-200 hover:border-amber-300', iconBg: 'bg-amber-50 text-amber-600' },
+  { type: 'CONDITION', label: 'Condition', description: 'Branch logic', icon: GitBranch, color: 'border-violet-200 hover:border-violet-300', iconBg: 'bg-violet-50 text-violet-600' },
+  { type: 'END', label: 'End', description: 'End the flow', icon: CircleStop, color: 'border-red-200 hover:border-red-300', iconBg: 'bg-red-50 text-red-600' },
 ];
 
 const defaultNodeData: Record<FlowNodeType, Record<string, any>> = {
@@ -54,6 +56,7 @@ const FlowBuilder = () => {
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [error, setError] = useState('');
   const [showAnalytics, setShowAnalytics] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(true);
 
   // Build edge styling from label/style data
   const buildEdgeProps = (label?: string, style?: { stroke?: string; strokeWidth?: number }) => {
@@ -317,33 +320,34 @@ const FlowBuilder = () => {
     }
   };
 
+  const statusBadgeVariant = flowStatus === 'ACTIVE' ? 'success' : flowStatus === 'PAUSED' ? 'warning' : 'default';
+
   return (
-    <div className="fixed inset-0 bg-white flex flex-col z-50" ref={reactFlowWrapper}>
-      {/* Top Bar */}
-      <div className="h-14 bg-white border-b border-gray-200 flex items-center justify-between px-4 shadow-sm flex-shrink-0">
+    <div className="fixed inset-0 bg-gray-50 flex flex-col z-50" ref={reactFlowWrapper}>
+      {/* Top Toolbar */}
+      <div className="h-14 bg-white border-b border-gray-200/80 flex items-center justify-between px-4 shadow-sm flex-shrink-0">
         <div className="flex items-center gap-3">
-          <button onClick={() => navigate('/flows')} className="p-2 rounded-lg hover:bg-gray-100 transition-colors">
-            <ArrowLeft className="w-5 h-5 text-gray-600" />
-          </button>
+          <Button variant="ghost" size="sm" onClick={() => navigate('/flows')}>
+            <ArrowLeft className="w-4 h-4" />
+          </Button>
+          <div className="h-6 w-px bg-gray-200" />
           <input
             type="text"
             value={flowName}
             onChange={(e) => setFlowName(e.target.value)}
-            className="text-lg font-semibold text-gray-900 bg-transparent border-none focus:outline-none focus:ring-0 w-48 md:w-64"
+            className="text-base font-semibold text-gray-900 bg-transparent border-none focus:outline-none focus:ring-0 w-48 md:w-64 placeholder:text-gray-400"
             placeholder="Flow name..."
           />
-          <span className={`px-2 py-0.5 text-xs rounded-full font-medium border ${
-            flowStatus === 'ACTIVE' ? 'bg-green-50 text-green-700 border-green-200' :
-            flowStatus === 'PAUSED' ? 'bg-yellow-50 text-yellow-700 border-yellow-200' :
-            'bg-gray-50 text-gray-600 border-gray-200'
-          }`}>
-            {flowStatus}
-          </span>
+          <Badge variant={statusBadgeVariant} dot>{flowStatus}</Badge>
         </div>
         <div className="flex items-center gap-2">
-          {error && <span className="text-xs text-red-600 bg-red-50 px-3 py-1 rounded-full border border-red-200 max-w-xs truncate">{error}</span>}
+          {error && (
+            <span className="text-xs text-red-600 bg-red-50 px-3 py-1.5 rounded-lg border border-red-200 max-w-xs truncate">
+              {error}
+            </span>
+          )}
           {saveSuccess && (
-            <span className="text-xs text-green-600 bg-green-50 px-3 py-1 rounded-full border border-green-200 flex items-center gap-1">
+            <span className="text-xs text-emerald-600 bg-emerald-50 px-3 py-1.5 rounded-lg border border-emerald-200 flex items-center gap-1.5">
               <CheckCircle className="w-3 h-3" /> Saved
             </span>
           )}
@@ -353,19 +357,19 @@ const FlowBuilder = () => {
             </Button>
           )}
           <Button variant="outline" size="sm" onClick={handleSave} disabled={saving}>
-            <Save className="w-4 h-4 mr-1" />
+            <Save className="w-4 h-4" />
             {saving ? 'Saving...' : 'Save'}
           </Button>
           {flowId && (
             <Button
               size="sm"
               onClick={handleToggleStatus}
-              className={flowStatus === 'ACTIVE' ? '!bg-yellow-500 hover:!bg-yellow-600' : ''}
+              className={flowStatus === 'ACTIVE' ? '!bg-amber-500 hover:!bg-amber-600' : ''}
             >
               {flowStatus === 'ACTIVE' ? (
-                <><Pause className="w-4 h-4 mr-1" /> Pause</>
+                <><Pause className="w-4 h-4" /> Pause</>
               ) : (
-                <><Play className="w-4 h-4 mr-1" /> Activate</>
+                <><Play className="w-4 h-4" /> Activate</>
               )}
             </Button>
           )}
@@ -375,60 +379,83 @@ const FlowBuilder = () => {
       {/* Main Content */}
       <div className="flex-1 flex overflow-hidden">
         {/* Left Panel - Node Palette */}
-        <div className="w-56 bg-white border-r border-gray-200 flex-shrink-0 overflow-y-auto">
-          <div className="p-3">
-            <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">Nodes</h3>
-            <div className="space-y-2">
-              {paletteItems.map(({ type, label, icon: Icon, color }) => (
-                <div
-                  key={type}
-                  draggable
-                  onDragStart={(e) => onDragStart(e, type)}
-                  className={`flex items-center gap-2.5 px-3 py-2.5 rounded-lg border cursor-grab active:cursor-grabbing transition-all hover:shadow-sm ${color}`}
-                >
-                  <Icon className="w-4 h-4" />
-                  <span className="text-xs font-medium">{label}</span>
-                </div>
-              ))}
+        <div className="w-60 bg-white border-r border-gray-200/80 flex-shrink-0 overflow-y-auto">
+          <div className="p-4 space-y-5">
+            {/* Nodes Section */}
+            <div>
+              <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">Drag to canvas</h3>
+              <div className="space-y-2">
+                {paletteItems.map(({ type, label, description, icon: Icon, color, iconBg }) => (
+                  <div
+                    key={type}
+                    draggable
+                    onDragStart={(e) => onDragStart(e, type)}
+                    className={`flex items-center gap-3 px-3 py-2.5 rounded-xl border bg-white cursor-grab active:cursor-grabbing transition-all duration-200 hover:shadow-md active:shadow-sm group ${color}`}
+                  >
+                    <div className={`p-1.5 rounded-lg ${iconBg} transition-transform duration-200 group-hover:scale-110`}>
+                      <Icon className="w-3.5 h-3.5" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-semibold text-gray-800">{label}</p>
+                      <p className="text-[10px] text-gray-400 leading-tight">{description}</p>
+                    </div>
+                    <GripVertical className="w-3.5 h-3.5 text-gray-300 opacity-0 group-hover:opacity-100 transition-opacity" />
+                  </div>
+                ))}
+              </div>
             </div>
 
-            <div className="mt-6 pt-4 border-t border-gray-100">
-              <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">Settings</h3>
-              <div className="space-y-3">
-                <div>
-                  <label className="block text-xs font-medium text-gray-600 mb-1">Trigger</label>
-                  <select
-                    value={triggerType}
-                    onChange={(e) => setTriggerType(e.target.value)}
-                    className="w-full h-8 px-2 text-xs bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-whatsapp-teal"
-                  >
-                    <option value="KEYWORD">Keyword</option>
-                    <option value="CAMPAIGN">Campaign</option>
-                    <option value="MANUAL">Manual</option>
-                  </select>
-                </div>
-                {triggerType === 'KEYWORD' && (
-                  <div>
-                    <label className="block text-xs font-medium text-gray-600 mb-1">Keywords</label>
-                    <input
-                      type="text"
-                      value={triggerKeywords}
-                      onChange={(e) => setTriggerKeywords(e.target.value)}
-                      placeholder="hi, hello"
-                      className="w-full h-8 px-2 text-xs bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-whatsapp-teal"
-                    />
-                  </div>
-                )}
-                <div>
-                  <label className="block text-xs font-medium text-gray-600 mb-1">Description</label>
-                  <textarea
-                    value={flowDescription}
-                    onChange={(e) => setFlowDescription(e.target.value)}
-                    placeholder="Flow description..."
-                    className="w-full px-2 py-1.5 text-xs bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-whatsapp-teal min-h-[60px] resize-y"
-                  />
-                </div>
-              </div>
+            {/* Settings Section */}
+            <div className="border-t border-gray-100 pt-4">
+              <button
+                onClick={() => setSettingsOpen(!settingsOpen)}
+                className="flex items-center justify-between w-full text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3 hover:text-gray-600 transition-colors"
+              >
+                <span className="flex items-center gap-1.5">
+                  <Settings2 className="w-3.5 h-3.5" />
+                  Settings
+                </span>
+                {settingsOpen ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />}
+              </button>
+              {settingsOpen && (
+                <Card className="!shadow-none border-gray-100">
+                  <CardContent className="p-3 space-y-3">
+                    <div>
+                      <label className="block text-xs font-medium text-gray-600 mb-1.5">Trigger</label>
+                      <select
+                        value={triggerType}
+                        onChange={(e) => setTriggerType(e.target.value)}
+                        className="w-full h-8 px-2.5 text-xs bg-white border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#008069]/20 focus:border-[#008069]/40 transition-all"
+                      >
+                        <option value="KEYWORD">Keyword</option>
+                        <option value="CAMPAIGN">Campaign</option>
+                        <option value="MANUAL">Manual</option>
+                      </select>
+                    </div>
+                    {triggerType === 'KEYWORD' && (
+                      <div>
+                        <label className="block text-xs font-medium text-gray-600 mb-1.5">Keywords</label>
+                        <input
+                          type="text"
+                          value={triggerKeywords}
+                          onChange={(e) => setTriggerKeywords(e.target.value)}
+                          placeholder="hi, hello"
+                          className="w-full h-8 px-2.5 text-xs bg-white border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#008069]/20 focus:border-[#008069]/40 transition-all placeholder:text-gray-400"
+                        />
+                      </div>
+                    )}
+                    <div>
+                      <label className="block text-xs font-medium text-gray-600 mb-1.5">Description</label>
+                      <textarea
+                        value={flowDescription}
+                        onChange={(e) => setFlowDescription(e.target.value)}
+                        placeholder="Flow description..."
+                        className="w-full px-2.5 py-2 text-xs bg-white border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#008069]/20 focus:border-[#008069]/40 min-h-[60px] resize-y transition-all placeholder:text-gray-400"
+                      />
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
             </div>
           </div>
         </div>

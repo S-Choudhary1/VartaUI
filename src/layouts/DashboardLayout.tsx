@@ -20,6 +20,10 @@ import {
   AlertTriangle
 } from 'lucide-react';
 import { cn } from '../components/ui/Button';
+import { Button } from '../components/ui/Button';
+import { Modal } from '../components/ui/Modal';
+import { Avatar } from '../components/ui/Avatar';
+import { Badge } from '../components/ui/Badge';
 
 const DashboardLayout = () => {
   const { logout, user } = useAuth();
@@ -48,7 +52,7 @@ const DashboardLayout = () => {
   const isSuperAdmin = user?.role === 'SUPER_ADMIN';
   const isImpersonating = !!localStorage.getItem('impersonatedClientId');
 
-  const navItems = [
+  const mainNavItems = [
     { path: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { path: '/contacts', label: 'Contacts', icon: Users },
     { path: '/campaigns', label: 'Campaigns', icon: Send },
@@ -56,10 +60,18 @@ const DashboardLayout = () => {
     { path: '/templates', label: 'Templates', icon: FileText },
     { path: '/messages', label: 'Quick Send', icon: MessageSquareText },
     { path: '/settings', label: 'Settings', icon: Settings },
-    ...(isSuperAdmin ? [
-      { path: '/admin', label: 'Admin Dashboard', icon: Shield },
-      { path: '/admin/clients', label: 'Clients', icon: Building2 },
-    ] : []),
+  ];
+
+  const adminNavItems = isSuperAdmin
+    ? [
+        { path: '/admin', label: 'Admin Dashboard', icon: Shield },
+        { path: '/admin/clients', label: 'Clients', icon: Building2 },
+      ]
+    : [];
+
+  const navItems = [
+    ...mainNavItems,
+    ...adminNavItems,
   ];
 
   const handleLogout = () => {
@@ -100,218 +112,349 @@ const DashboardLayout = () => {
     setIsProfileOpen(false);
   };
 
+  const currentPageLabel = navItems.find(i => i.path === location.pathname)?.label || 'Dashboard';
+
   return (
-    <div className="flex h-screen bg-gray-50">
+    <div className="flex h-screen bg-gray-50/80">
       {/* Mobile Overlay */}
       {mobileMenuOpen && (
-        <div 
-          className="fixed inset-0 z-40 bg-black/50 lg:hidden"
+        <div
+          className="fixed inset-0 z-40 bg-black/30 backdrop-blur-sm lg:hidden transition-opacity duration-300"
           onClick={() => setMobileMenuOpen(false)}
         />
       )}
 
       {/* Sidebar */}
-      <aside 
+      <aside
         className={cn(
-          "fixed lg:static inset-y-0 left-0 z-50 bg-white border-r border-gray-200 transition-all duration-300 flex flex-col shadow-lg lg:shadow-none",
-          sidebarOpen ? "w-64" : "w-20",
-          mobileMenuOpen ? "translate-x-0 w-64" : "-translate-x-full lg:translate-x-0"
+          'fixed lg:static inset-y-0 left-0 z-50 bg-[#fafafa] border-r border-gray-200/80 transition-all duration-300 ease-in-out flex flex-col',
+          sidebarOpen ? 'w-[260px]' : 'w-[72px]',
+          mobileMenuOpen ? 'translate-x-0 w-[260px]' : '-translate-x-full lg:translate-x-0'
         )}
       >
-        <div className="h-16 flex items-center justify-between px-4 border-b border-gray-100">
-          <div className="flex items-center gap-2 overflow-hidden">
-             <div className="w-8 h-8 rounded-lg bg-whatsapp-teal flex items-center justify-center flex-shrink-0">
-               <span className="text-white font-bold text-lg">V</span>
-             </div>
-             {(sidebarOpen || mobileMenuOpen) && (
-               <span className="text-xl font-bold text-gray-900 tracking-tight whitespace-nowrap">VartaAI</span>
-          )}
+        {/* Logo */}
+        <div className="h-16 flex items-center justify-between px-4 border-b border-gray-200/60">
+          <div className="flex items-center gap-2.5 overflow-hidden">
+            <div className="w-9 h-9 rounded-lg bg-[#008069] flex items-center justify-center flex-shrink-0">
+              <span className="text-white font-bold text-lg leading-none">V</span>
+            </div>
+            {(sidebarOpen || mobileMenuOpen) && (
+              <span className="text-lg font-semibold text-gray-900 tracking-tight whitespace-nowrap">
+                VartaAI
+              </span>
+            )}
           </div>
-          {/* Mobile Close Button */}
-          <button 
+          {/* Mobile Close */}
+          <button
             onClick={() => setMobileMenuOpen(false)}
-            className="lg:hidden p-1 hover:bg-gray-100 rounded-md"
+            className="lg:hidden p-1.5 hover:bg-gray-100 rounded-lg transition-colors"
           >
-            <X className="w-5 h-5 text-gray-500" />
+            <X className="w-4 h-4 text-gray-500" />
           </button>
         </div>
 
-        <nav className="flex-1 py-6 space-y-1 px-3">
-          {navItems.map((item) => {
-            const Icon = item.icon;
-            const isActive = location.pathname === item.path;
-            return (
-              <Link
-                key={item.path}
-                to={item.path}
-                className={cn(
-                  "flex items-center px-3 py-2.5 rounded-lg transition-all duration-200 group relative overflow-hidden",
-                  isActive 
-                    ? "bg-whatsapp-teal/10 text-whatsapp-teal font-semibold" 
-                    : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
-                )}
-              >
-                <Icon className={cn("w-5 h-5 flex-shrink-0 transition-colors", isActive ? "text-whatsapp-teal" : "text-gray-400 group-hover:text-gray-600")} />
-                <span className={cn(
-                  "ml-3 transition-all duration-200 whitespace-nowrap",
-                  !sidebarOpen && !mobileMenuOpen && "opacity-0 w-0 overflow-hidden"
-                )}>
-                  {item.label}
-                </span>
-                
-                {!sidebarOpen && !mobileMenuOpen && (
-                   <div className="absolute left-full ml-2 px-2 py-1 bg-gray-900 text-white text-xs rounded opacity-0 group-hover:opacity-100 pointer-events-none whitespace-nowrap z-50">
-                     {item.label}
-                   </div>
-                )}
-              </Link>
-            );
-          })}
+        {/* Navigation */}
+        <nav className="flex-1 overflow-y-auto py-4 px-3 space-y-6">
+          {/* Main section */}
+          <div className="space-y-0.5">
+            {(sidebarOpen || mobileMenuOpen) && (
+              <p className="px-3 mb-2 text-[10px] font-semibold uppercase tracking-widest text-gray-400">
+                Main
+              </p>
+            )}
+            {mainNavItems.map((item) => {
+              const Icon = item.icon;
+              const isActive = location.pathname === item.path;
+              return (
+                <Link
+                  key={item.path}
+                  to={item.path}
+                  className={cn(
+                    'flex items-center rounded-lg transition-all duration-150 group relative',
+                    sidebarOpen || mobileMenuOpen ? 'px-3 py-2.5' : 'justify-center py-2.5 px-0',
+                    isActive
+                      ? 'text-[#008069]'
+                      : 'text-gray-500 hover:text-gray-900 hover:bg-gray-100/80'
+                  )}
+                >
+                  {/* Active left accent */}
+                  {isActive && (
+                    <div className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-5 bg-[#008069] rounded-r-full" />
+                  )}
+                  <Icon
+                    className={cn(
+                      'w-[18px] h-[18px] flex-shrink-0 transition-colors',
+                      isActive ? 'text-[#008069]' : 'text-gray-400 group-hover:text-gray-600'
+                    )}
+                  />
+                  <span
+                    className={cn(
+                      'ml-3 text-[13px] transition-all duration-200 whitespace-nowrap',
+                      isActive ? 'font-semibold' : 'font-medium',
+                      !sidebarOpen && !mobileMenuOpen && 'opacity-0 w-0 overflow-hidden ml-0'
+                    )}
+                  >
+                    {item.label}
+                  </span>
+
+                  {/* Tooltip for collapsed sidebar */}
+                  {!sidebarOpen && !mobileMenuOpen && (
+                    <div className="absolute left-full ml-3 px-2.5 py-1.5 bg-gray-900 text-white text-xs font-medium rounded-lg opacity-0 group-hover:opacity-100 pointer-events-none whitespace-nowrap z-50 shadow-lg transition-opacity duration-150">
+                      {item.label}
+                    </div>
+                  )}
+                </Link>
+              );
+            })}
+          </div>
+
+          {/* Admin section */}
+          {adminNavItems.length > 0 && (
+            <div className="space-y-0.5">
+              {(sidebarOpen || mobileMenuOpen) && (
+                <p className="px-3 mb-2 text-[10px] font-semibold uppercase tracking-widest text-gray-400">
+                  Administration
+                </p>
+              )}
+              {!sidebarOpen && !mobileMenuOpen && (
+                <div className="mx-auto w-6 border-t border-gray-200/80 mb-2" />
+              )}
+              {adminNavItems.map((item) => {
+                const Icon = item.icon;
+                const isActive = location.pathname === item.path;
+                return (
+                  <Link
+                    key={item.path}
+                    to={item.path}
+                    className={cn(
+                      'flex items-center rounded-lg transition-all duration-150 group relative',
+                      sidebarOpen || mobileMenuOpen ? 'px-3 py-2.5' : 'justify-center py-2.5 px-0',
+                      isActive
+                        ? 'text-[#008069]'
+                        : 'text-gray-500 hover:text-gray-900 hover:bg-gray-100/80'
+                    )}
+                  >
+                    {isActive && (
+                      <div className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-5 bg-[#008069] rounded-r-full" />
+                    )}
+                    <Icon
+                      className={cn(
+                        'w-[18px] h-[18px] flex-shrink-0 transition-colors',
+                        isActive ? 'text-[#008069]' : 'text-gray-400 group-hover:text-gray-600'
+                      )}
+                    />
+                    <span
+                      className={cn(
+                        'ml-3 text-[13px] transition-all duration-200 whitespace-nowrap',
+                        isActive ? 'font-semibold' : 'font-medium',
+                        !sidebarOpen && !mobileMenuOpen && 'opacity-0 w-0 overflow-hidden ml-0'
+                      )}
+                    >
+                      {item.label}
+                    </span>
+                    {!sidebarOpen && !mobileMenuOpen && (
+                      <div className="absolute left-full ml-3 px-2.5 py-1.5 bg-gray-900 text-white text-xs font-medium rounded-lg opacity-0 group-hover:opacity-100 pointer-events-none whitespace-nowrap z-50 shadow-lg transition-opacity duration-150">
+                        {item.label}
+                      </div>
+                    )}
+                  </Link>
+                );
+              })}
+            </div>
+          )}
         </nav>
 
-        <div className="p-4 border-t border-gray-100">
-           <button
+        {/* Bottom section */}
+        <div className="border-t border-gray-200/60 p-3 space-y-2">
+          {/* Collapse toggle - desktop only */}
+          <button
             onClick={() => setSidebarOpen(!sidebarOpen)}
-            className="hidden lg:flex items-center justify-center w-full p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-50 rounded-lg mb-2 transition-colors"
+            className="hidden lg:flex items-center justify-center w-full p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100/80 rounded-lg transition-colors"
           >
-            {sidebarOpen ? <ChevronLeft className="w-5 h-5" /> : <ChevronRight className="w-5 h-5" />}
+            {sidebarOpen ? (
+              <ChevronLeft className="w-4 h-4" />
+            ) : (
+              <ChevronRight className="w-4 h-4" />
+            )}
           </button>
 
+          {/* User info */}
+          {(sidebarOpen || mobileMenuOpen) && (
+            <div className="flex items-center gap-3 px-2 py-2">
+              <Avatar name={user?.username || 'User'} size="sm" className="ring-0" />
+              <div className="flex-1 min-w-0">
+                <p className="text-[13px] font-medium text-gray-900 truncate">
+                  {user?.username || 'User'}
+                </p>
+                <p className="text-[11px] text-gray-400 uppercase tracking-wider">
+                  {user?.role || 'Admin'}
+                </p>
+              </div>
+            </div>
+          )}
+
+          {/* Logout */}
           <button
             onClick={handleLogout}
             className={cn(
-              "flex items-center w-full px-3 py-2.5 text-red-600 hover:bg-red-50 rounded-lg transition-colors group overflow-hidden",
-              !sidebarOpen && "justify-center"
+              'flex items-center w-full py-2 text-gray-500 hover:text-red-600 hover:bg-red-50/80 rounded-lg transition-all duration-150 group',
+              sidebarOpen || mobileMenuOpen ? 'px-3' : 'justify-center px-0'
             )}
           >
-            <LogOut className="w-5 h-5 flex-shrink-0" />
-            <span className={cn(
-              "ml-3 transition-all duration-200 whitespace-nowrap",
-               !sidebarOpen && !mobileMenuOpen && "opacity-0 w-0 overflow-hidden"
-            )}>
+            <LogOut className="w-[18px] h-[18px] flex-shrink-0 transition-colors group-hover:text-red-600" />
+            <span
+              className={cn(
+                'ml-3 text-[13px] font-medium transition-all duration-200 whitespace-nowrap',
+                !sidebarOpen && !mobileMenuOpen && 'opacity-0 w-0 overflow-hidden ml-0'
+              )}
+            >
               Logout
             </span>
+            {!sidebarOpen && !mobileMenuOpen && (
+              <div className="absolute left-full ml-3 px-2.5 py-1.5 bg-gray-900 text-white text-xs font-medium rounded-lg opacity-0 group-hover:opacity-100 pointer-events-none whitespace-nowrap z-50 shadow-lg transition-opacity duration-150">
+                Logout
+              </div>
+            )}
           </button>
         </div>
       </aside>
 
       {/* Main Content */}
-      <main className="flex-1 flex flex-col h-screen overflow-hidden bg-gray-50/50 w-full">
+      <main className="flex-1 flex flex-col h-screen overflow-hidden w-full">
         {/* Impersonation Banner */}
         {isImpersonating && (
-          <div className="bg-yellow-400 text-yellow-900 px-4 py-2 flex items-center justify-between text-sm font-medium z-40">
-            <div className="flex items-center gap-2">
-              <AlertTriangle className="w-4 h-4" />
-              <span>You are impersonating a client. Data shown belongs to the impersonated tenant.</span>
+          <div className="bg-amber-50 border-b border-amber-200/60 text-amber-800 px-4 py-2 flex items-center justify-between z-40">
+            <div className="flex items-center gap-2 text-sm">
+              <AlertTriangle className="w-4 h-4 text-amber-600" />
+              <span className="font-medium">Impersonation active</span>
+              <span className="text-amber-600 hidden sm:inline">
+                -- Data shown belongs to the impersonated tenant.
+              </span>
             </div>
-            <button
+            <Button
+              variant="outline"
+              size="sm"
               onClick={handleExitImpersonation}
-              className="px-3 py-1 bg-yellow-600 text-white rounded-md hover:bg-yellow-700 transition-colors text-xs font-semibold"
+              className="border-amber-300 text-amber-800 hover:bg-amber-100 text-xs"
             >
-              Exit Impersonation
-            </button>
+              Exit
+            </Button>
           </div>
         )}
-        <header className="h-16 bg-white border-b border-gray-200 flex items-center justify-between px-4 sm:px-6 shadow-sm z-30">
-          <div className="flex items-center gap-4">
-          <button 
+
+        {/* Header */}
+        <header className="h-14 bg-white border-b border-gray-200/80 flex items-center justify-between px-4 sm:px-6 z-30 flex-shrink-0">
+          <div className="flex items-center gap-3">
+            <button
               onClick={() => setMobileMenuOpen(true)}
-              className="lg:hidden p-2 hover:bg-gray-100 rounded-lg text-gray-600"
-          >
-            <Menu className="w-6 h-6" />
-          </button>
-            <h2 className="text-lg font-semibold text-gray-800 hidden sm:block">
-               {navItems.find(i => i.path === location.pathname)?.label || 'Dashboard'}
-            </h2>
+              className="lg:hidden p-1.5 hover:bg-gray-100 rounded-lg text-gray-500 transition-colors"
+            >
+              <Menu className="w-5 h-5" />
+            </button>
+            <div className="hidden sm:flex items-center gap-1.5 text-sm">
+              <span className="text-gray-400 font-medium">VartaAI</span>
+              <span className="text-gray-300">/</span>
+              <span className="text-gray-900 font-semibold">{currentPageLabel}</span>
+            </div>
           </div>
-          
+
           <button
             type="button"
             onClick={handleOpenProfile}
-            className="flex items-center space-x-4 p-1 rounded-lg hover:bg-gray-50 transition-colors"
+            className="flex items-center gap-3 p-1.5 rounded-lg hover:bg-gray-50 transition-colors"
           >
-            <div className="flex flex-col items-end hidden md:flex">
-              <span className="text-sm font-medium text-gray-900">
-                {user?.username || 'User'}
-              </span>
-              <span className="text-xs text-gray-500 uppercase tracking-wider">
-                {user?.role || 'Admin'}
-              </span>
-            </div>
-            <div className="w-10 h-10 bg-gradient-to-br from-whatsapp-teal to-whatsapp-teal-dark rounded-full flex items-center justify-center text-white font-bold text-lg shadow-md ring-2 ring-white">
-              {user?.username?.charAt(0).toUpperCase() || 'U'}
-            </div>
+            <Avatar name={user?.username || 'User'} size="sm" className="ring-0" />
           </button>
         </header>
 
+        {/* Page content */}
         <div className="flex-1 overflow-auto p-4 sm:p-6 lg:p-8 scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-transparent">
           <div className="max-w-7xl mx-auto">
-          <Outlet />
+            <Outlet />
           </div>
         </div>
       </main>
 
-      {isProfileOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div
-            className="fixed inset-0 bg-black/40"
-            onClick={handleCloseProfile}
-          />
-          <div className="relative w-full max-w-lg rounded-xl bg-white shadow-2xl">
-            <div className="flex items-center justify-between border-b border-gray-100 px-6 py-4">
-              <h3 className="text-lg font-semibold text-gray-900">Profile Details</h3>
-              <button
-                type="button"
-                onClick={handleCloseProfile}
-                className="rounded-md p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
-              >
-                <X className="h-5 w-5" />
-              </button>
-            </div>
-
-            <div className="space-y-4 px-6 py-5 text-sm text-gray-700">
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                <p><span className="font-medium text-gray-900">Username:</span> {user?.username || 'N/A'}</p>
-                <p><span className="font-medium text-gray-900">Role:</span> {user?.role || 'N/A'}</p>
-                <p><span className="font-medium text-gray-900">User ID:</span> {user?.id || 'N/A'}</p>
-                <p><span className="font-medium text-gray-900">Client ID:</span> {user?.clientId || 'N/A'}</p>
+      {/* Profile Modal */}
+      <Modal
+        open={isProfileOpen}
+        onClose={handleCloseProfile}
+        title="Profile"
+        description="Your account and client details"
+        size="md"
+        footer={
+          <Button variant="outline" onClick={handleCloseProfile}>
+            Close
+          </Button>
+        }
+      >
+        <div className="space-y-5">
+          {/* User section */}
+          <div className="flex items-center gap-4 p-4 bg-gray-50/80 rounded-xl">
+            <Avatar name={user?.username || 'User'} size="lg" className="ring-0" />
+            <div className="min-w-0">
+              <p className="text-base font-semibold text-gray-900">{user?.username || 'N/A'}</p>
+              <div className="flex items-center gap-2 mt-1">
+                <Badge variant={isSuperAdmin ? 'info' : 'default'} size="sm">
+                  {user?.role || 'N/A'}
+                </Badge>
               </div>
-
-              <div className="border-t border-gray-100 pt-4">
-                <h4 className="mb-3 font-semibold text-gray-900">Client Details</h4>
-                {clientLoading ? (
-                  <p className="text-gray-500">Loading client details...</p>
-                ) : clientError ? (
-                  <p className="text-red-600">{clientError}</p>
-                ) : clientData ? (
-                  <div className="space-y-2">
-                    <p><span className="font-medium text-gray-900">Name:</span> {clientData.name}</p>
-                    <p><span className="font-medium text-gray-900">ID:</span> {clientData.id}</p>
-                    <p><span className="font-medium text-gray-900">Phone Number ID:</span> {clientData.phoneNumberId}</p>
-                    <p><span className="font-medium text-gray-900">WABA ID:</span> {clientData.wabaId}</p>
-                    <p>
-                      <span className="font-medium text-gray-900">Created At:</span>{' '}
-                      {clientData.createdAt ? new Date(clientData.createdAt).toLocaleString() : 'N/A'}
-                    </p>
-                  </div>
-                ) : (
-                  <p className="text-gray-500">No client details found.</p>
-                )}
-              </div>
-            </div>
-
-            <div className="flex justify-end border-t border-gray-100 px-6 py-4">
-              <button
-                type="button"
-                onClick={handleCloseProfile}
-                className="rounded-lg border border-gray-200 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
-              >
-                Close
-              </button>
             </div>
           </div>
+
+          {/* Details grid */}
+          <div className="grid grid-cols-2 gap-x-6 gap-y-3 text-sm">
+            <div>
+              <p className="text-gray-400 text-xs font-medium uppercase tracking-wider mb-0.5">User ID</p>
+              <p className="text-gray-900 font-mono text-xs">{user?.id || 'N/A'}</p>
+            </div>
+            <div>
+              <p className="text-gray-400 text-xs font-medium uppercase tracking-wider mb-0.5">Client ID</p>
+              <p className="text-gray-900 font-mono text-xs">{user?.clientId || 'N/A'}</p>
+            </div>
+          </div>
+
+          {/* Client details */}
+          <div className="border-t border-gray-100 pt-4">
+            <h4 className="text-sm font-semibold text-gray-900 mb-3">Client Details</h4>
+            {clientLoading ? (
+              <div className="flex items-center gap-2 py-3 text-sm text-gray-500">
+                <div className="w-4 h-4 border-2 border-gray-200 border-t-[#008069] rounded-full animate-spin" />
+                Loading client details...
+              </div>
+            ) : clientError ? (
+              <p className="text-sm text-red-600 py-2">{clientError}</p>
+            ) : clientData ? (
+              <div className="grid grid-cols-2 gap-x-6 gap-y-3 text-sm">
+                <div>
+                  <p className="text-gray-400 text-xs font-medium uppercase tracking-wider mb-0.5">Name</p>
+                  <p className="text-gray-900">{clientData.name}</p>
+                </div>
+                <div>
+                  <p className="text-gray-400 text-xs font-medium uppercase tracking-wider mb-0.5">ID</p>
+                  <p className="text-gray-900 font-mono text-xs">{clientData.id}</p>
+                </div>
+                <div>
+                  <p className="text-gray-400 text-xs font-medium uppercase tracking-wider mb-0.5">Phone Number ID</p>
+                  <p className="text-gray-900 font-mono text-xs">{clientData.phoneNumberId}</p>
+                </div>
+                <div>
+                  <p className="text-gray-400 text-xs font-medium uppercase tracking-wider mb-0.5">WABA ID</p>
+                  <p className="text-gray-900 font-mono text-xs">{clientData.wabaId}</p>
+                </div>
+                <div className="col-span-2">
+                  <p className="text-gray-400 text-xs font-medium uppercase tracking-wider mb-0.5">Created</p>
+                  <p className="text-gray-900">
+                    {clientData.createdAt ? new Date(clientData.createdAt).toLocaleString() : 'N/A'}
+                  </p>
+                </div>
+              </div>
+            ) : (
+              <p className="text-sm text-gray-500 py-2">No client details found.</p>
+            )}
+          </div>
         </div>
-      )}
+      </Modal>
     </div>
   );
 };

@@ -28,93 +28,100 @@ const Login = () => {
   };
 
   return (
-    <div className="min-h-screen w-full flex bg-white">
-      {/* Left Side - Hero/Branding */}
-      <div className="hidden lg:flex w-1/2 bg-whatsapp-dark relative overflow-hidden flex-col justify-between p-12">
-        <div className="relative z-10">
-          <div className="flex items-center gap-3 mb-8">
-            <div className="w-10 h-10 rounded-xl bg-whatsapp-teal flex items-center justify-center text-white font-bold text-xl shadow-lg">
-              V
+    <div
+      className="min-h-screen w-full flex items-center justify-center p-4 relative overflow-hidden"
+      style={{
+        background: `
+          radial-gradient(ellipse 80% 60% at 20% 10%, rgba(0, 128, 105, 0.15) 0%, transparent 50%),
+          radial-gradient(ellipse 60% 50% at 80% 80%, rgba(0, 128, 105, 0.10) 0%, transparent 50%),
+          radial-gradient(ellipse 50% 40% at 50% 50%, rgba(0, 80, 60, 0.06) 0%, transparent 60%),
+          linear-gradient(160deg, #0a0f0d 0%, #111916 30%, #0d1210 60%, #0a0e0c 100%)
+        `,
+      }}
+    >
+      {/* Subtle grid pattern overlay */}
+      <div
+        className="absolute inset-0 opacity-[0.03]"
+        style={{
+          backgroundImage: `linear-gradient(rgba(255,255,255,0.1) 1px, transparent 1px),
+                            linear-gradient(90deg, rgba(255,255,255,0.1) 1px, transparent 1px)`,
+          backgroundSize: '64px 64px',
+        }}
+      />
+
+      {/* Card */}
+      <div className="relative w-full max-w-md animate-slide-up">
+        <div className="bg-white rounded-2xl shadow-xl shadow-black/20 p-8 sm:p-10">
+          {/* Logo and tagline */}
+          <div className="text-center mb-8">
+            <div className="inline-flex items-center justify-center w-12 h-12 rounded-xl bg-[#008069] mb-4 shadow-lg shadow-[#008069]/20">
+              <span className="text-white font-bold text-xl leading-none">V</span>
             </div>
-            <span className="text-2xl font-bold text-whatsapp-dark bg-white/90 px-2.5 py-1 rounded-lg tracking-tight">VartaAI</span>
+            <h1 className="text-2xl font-bold text-gray-900 tracking-tight">
+              Welcome to VartaAI
+            </h1>
+            <p className="text-gray-500 text-sm mt-1.5">
+              Sign in to manage your WhatsApp campaigns
+            </p>
           </div>
-          <h1 className="text-5xl font-bold text-white leading-tight mb-6">
-            Supercharge your <br />
-            <span className="text-whatsapp-teal">WhatsApp Marketing</span>
-          </h1>
-          <p className="text-gray-400 text-lg max-w-md leading-relaxed">
-            Connect with your customers where they are. Automate campaigns, manage contacts, and grow your business with the power of AI.
-          </p>
-        </div>
 
-        {/* Abstract Visual Elements */}
-        <div className="absolute top-1/2 right-0 transform translate-x-1/3 -translate-y-1/2 w-[600px] h-[600px] bg-whatsapp-teal/5 rounded-full blur-3xl pointer-events-none"></div>
-        <div className="absolute bottom-0 left-0 transform -translate-x-1/3 translate-y-1/3 w-[500px] h-[500px] bg-blue-500/5 rounded-full blur-3xl pointer-events-none"></div>
-
-        <div className="relative z-10 text-sm text-gray-500">
-          © 2025 VartaAI Inc. All rights reserved.
-        </div>
-      </div>
-
-      {/* Right Side - Login Form */}
-      <div className="w-full lg:w-1/2 flex items-center justify-center p-8 sm:p-12 lg:p-24 bg-gray-50/30">
-        <div className="w-full max-w-sm space-y-8">
-          <div className="text-center lg:text-left">
-            <div className="lg:hidden flex justify-center mb-6">
-               <div className="w-12 h-12 rounded-xl bg-whatsapp-teal flex items-center justify-center text-white font-bold text-2xl shadow-lg">
-                V
-              </div>
+          {/* Error */}
+          {error && (
+            <div className="mb-6 bg-red-50 border border-red-100 text-red-600 px-4 py-3 rounded-xl text-sm flex items-center">
+              <div className="w-1.5 h-1.5 rounded-full bg-red-500 mr-2.5 flex-shrink-0" />
+              {error}
             </div>
-            <h2 className="text-3xl font-bold text-gray-900 tracking-tight">Welcome Back</h2>
-            <p className="text-gray-500 mt-2">Enter your details to access your dashboard.</p>
-        </div>
+          )}
 
-        {error && (
-            <div className="bg-red-50 border border-red-100 text-red-600 px-4 py-3 rounded-xl text-sm flex items-center animate-in fade-in slide-in-from-top-2">
-              <div className="w-1.5 h-1.5 rounded-full bg-red-600 mr-2"></div>
-            {error}
-          </div>
-        )}
-
+          {/* Form */}
           <form onSubmit={handleSubmit} className="space-y-5">
             <div className="space-y-4">
+              {/* Username field */}
               <div className="space-y-1.5">
-                <label className="text-sm font-medium text-gray-700 ml-1">Username</label>
+                <label className="text-sm font-medium text-gray-700 ml-0.5">Username</label>
                 <div className="relative group">
-                  <User className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5 transition-colors group-focus-within:text-whatsapp-teal" />
+                  <User className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400 w-[18px] h-[18px] transition-colors group-focus-within:text-[#008069] pointer-events-none" />
                   <Input
-              type="text"
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
-              placeholder="Enter your username"
-              required
-                    className="pl-10 h-12 bg-white border-gray-200 focus:border-whatsapp-teal focus:ring-4 focus:ring-whatsapp-teal/10 rounded-xl transition-all"
-            />
-          </div>
+                    type="text"
+                    value={username}
+                    onChange={(e) => setUsername(e.target.value)}
+                    placeholder="Enter your username"
+                    required
+                    className="pl-11 h-12 bg-gray-50/80 border-gray-200 focus:bg-white focus:border-[#008069] focus:ring-2 focus:ring-[#008069]/10 rounded-xl transition-all"
+                  />
+                </div>
               </div>
-              
+
+              {/* Password field */}
               <div className="space-y-1.5">
-                 <div className="flex items-center justify-between ml-1">
-                    <label className="text-sm font-medium text-gray-700">Password</label>
-                    <a href="#" className="text-xs font-medium text-whatsapp-teal hover:text-whatsapp-teal-dark transition-colors">Forgot password?</a>
-                 </div>
-                 <div className="relative group">
-                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5 transition-colors group-focus-within:text-whatsapp-teal" />
+                <div className="flex items-center justify-between ml-0.5">
+                  <label className="text-sm font-medium text-gray-700">Password</label>
+                  <a
+                    href="#"
+                    className="text-xs font-medium text-[#008069] hover:text-[#006e5a] transition-colors"
+                  >
+                    Forgot password?
+                  </a>
+                </div>
+                <div className="relative group">
+                  <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400 w-[18px] h-[18px] transition-colors group-focus-within:text-[#008069] pointer-events-none" />
                   <Input
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder="Enter your password"
-              required
-                    className="pl-10 h-12 bg-white border-gray-200 focus:border-whatsapp-teal focus:ring-4 focus:ring-whatsapp-teal/10 rounded-xl transition-all"
-            />
-          </div>
+                    type="password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder="Enter your password"
+                    required
+                    className="pl-11 h-12 bg-gray-50/80 border-gray-200 focus:bg-white focus:border-[#008069] focus:ring-2 focus:ring-[#008069]/10 rounded-xl transition-all"
+                  />
+                </div>
               </div>
             </div>
 
+            {/* Submit */}
             <Button
-            type="submit"
-              className="w-full h-12 text-base font-semibold rounded-xl shadow-lg hover:-translate-y-0.5 transition-all duration-200"
+              type="submit"
+              size="lg"
+              className="w-full h-12 text-sm font-semibold rounded-xl shadow-md shadow-[#008069]/20 hover:shadow-lg hover:shadow-[#008069]/25 hover:-translate-y-0.5 transition-all duration-200"
               disabled={loading}
             >
               {loading ? (
@@ -124,17 +131,29 @@ const Login = () => {
                 </div>
               ) : (
                 <div className="flex items-center gap-2">
-            Sign In
+                  Sign In
                   <ArrowRight className="w-4 h-4" />
                 </div>
               )}
             </Button>
-        </form>
+          </form>
 
-          <p className="text-center text-sm text-gray-500">
-            Don't have an account? <a href="#" className="font-semibold text-whatsapp-teal hover:text-whatsapp-teal-dark transition-colors">Contact Sales</a>
+          {/* Footer link */}
+          <p className="text-center text-sm text-gray-500 mt-6">
+            Don't have an account?{' '}
+            <a
+              href="#"
+              className="font-semibold text-[#008069] hover:text-[#006e5a] transition-colors"
+            >
+              Contact Sales
+            </a>
           </p>
         </div>
+
+        {/* Subtle bottom text */}
+        <p className="text-center text-xs text-gray-500/40 mt-6">
+          &copy; 2026 VartaAI Inc. All rights reserved.
+        </p>
       </div>
     </div>
   );
