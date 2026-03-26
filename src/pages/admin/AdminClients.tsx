@@ -187,8 +187,8 @@ const AdminClients = () => {
       items.push({ label: 'Business Not Verified', desc: 'Business verification is required to unlock higher messaging limits and official account badge.', icon: Shield, variant: 'warning', href: META_BUSINESS_VERIFICATION_URL });
     }
 
-    if (client.wabaId && (!client.billingStatus || client.billingStatus === 'FAILED')) {
-      items.push({ label: client.billingStatus === 'FAILED' ? 'Payment Setup Failed' : 'Payment Method Required', desc: 'A payment method must be attached to enable conversation-based billing.', icon: CreditCard, variant: client.billingStatus === 'FAILED' ? 'danger' : 'warning', href: META_PAYMENT_URL });
+    if (client.wabaId && (!client.billingStatus || client.billingStatus === 'NO_PAYMENT_METHOD' || client.billingStatus === 'UNKNOWN')) {
+      items.push({ label: 'Payment Method Required', desc: 'Account is in sandbox mode. A payment method must be added in Meta Business Suite to send messages to real users.', icon: CreditCard, variant: 'warning', href: META_PAYMENT_URL });
     }
 
     if (client.qualityRating === 'RED') {
@@ -245,7 +245,7 @@ const AdminClients = () => {
                   {getQualityBadge(client.qualityRating)}
                   {(client.unresolvedAlertCount ?? 0) > 0 && <Badge variant="danger" dot>{client.unresolvedAlertCount} alert{(client.unresolvedAlertCount ?? 0) > 1 ? 's' : ''}</Badge>}
                   {client.wabaId && !client.businessVerificationStatus && <Badge variant="warning">Unverified</Badge>}
-                  {client.wabaId && (!client.billingStatus || client.billingStatus === 'FAILED') && <Badge variant="info">No Billing</Badge>}
+                  {client.wabaId && (!client.billingStatus || client.billingStatus === 'NO_PAYMENT_METHOD') && <Badge variant="info">No Billing</Badge>}
                 </div>
                 <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-xs">
                   <div className="text-gray-400">WABA ID</div>
@@ -439,7 +439,7 @@ const AdminClients = () => {
                     <span className="text-sm text-gray-500">Billing</span>
                     <div className="flex items-center gap-2">
                       {selectedClient.billingStatus ? (
-                        <Badge variant={selectedClient.billingStatus === 'ATTACHED' ? 'success' : selectedClient.billingStatus === 'FAILED' ? 'danger' : 'warning'}>
+                        <Badge variant={selectedClient.billingStatus === 'ACTIVE' ? 'success' : selectedClient.billingStatus === 'NO_PAYMENT_METHOD' ? 'danger' : 'warning'}>
                           {selectedClient.billingStatus}
                         </Badge>
                       ) : <Badge variant="default">Not Set</Badge>}

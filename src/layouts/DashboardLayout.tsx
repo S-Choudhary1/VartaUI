@@ -494,7 +494,7 @@ const DashboardLayout = () => {
                     </div>
                     <div className="flex items-center justify-between text-sm">
                       <span className="text-gray-500">Billing</span>
-                      <Badge variant={clientData.billingStatus === 'ATTACHED' ? 'success' : clientData.billingStatus === 'FAILED' ? 'danger' : 'default'} size="sm">
+                      <Badge variant={clientData.billingStatus === 'ACTIVE' ? 'success' : clientData.billingStatus === 'NO_PAYMENT_METHOD' ? 'danger' : 'default'} size="sm">
                         {clientData.billingStatus || 'Not Set'}
                       </Badge>
                     </div>

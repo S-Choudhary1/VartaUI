@@ -146,8 +146,8 @@ const Settings = () => {
     actionItems.push({ label: 'Business Not Verified', desc: 'Business verification is required to unlock higher messaging limits and official account badge.', icon: Shield, variant: 'warning', href: META_BUSINESS_VERIFICATION_URL });
   }
 
-  if (isConnected && (!status?.billingStatus || status?.billingStatus === 'FAILED')) {
-    actionItems.push({ label: status?.billingStatus === 'FAILED' ? 'Payment Setup Failed' : 'Payment Method Required', desc: 'A payment method must be attached to enable conversation-based billing.', icon: CreditCard, variant: status?.billingStatus === 'FAILED' ? 'danger' : 'warning', href: META_PAYMENT_URL });
+  if (isConnected && (!status?.billingStatus || status?.billingStatus === 'NO_PAYMENT_METHOD' || status?.billingStatus === 'UNKNOWN')) {
+    actionItems.push({ label: 'Payment Method Required', desc: 'Your account is in sandbox mode. Add a payment method in Meta Business Suite to send messages to real users.', icon: CreditCard, variant: 'warning', href: META_PAYMENT_URL });
   }
 
   if (isConnected && status?.qualityRating === 'RED') {
@@ -367,7 +367,7 @@ const Settings = () => {
                 <span className="text-sm text-gray-500">Billing / Payment Method</span>
                 <div className="flex items-center gap-2">
                   {status?.billingStatus ? (
-                    <Badge variant={status.billingStatus === 'ATTACHED' ? 'success' : status.billingStatus === 'FAILED' ? 'danger' : 'warning'}>
+                    <Badge variant={status.billingStatus === 'ACTIVE' ? 'success' : status.billingStatus === 'NO_PAYMENT_METHOD' ? 'danger' : 'warning'}>
                       {status.billingStatus}
                     </Badge>
                   ) : <Badge variant="default">Not Set</Badge>}
