@@ -41,6 +41,19 @@ const DashboardLayout = () => {
     name: string;
     phoneNumberId: string;
     wabaId: string;
+    language?: string;
+    onboardingStatus?: string;
+    businessName?: string;
+    verifiedName?: string;
+    qualityRating?: string;
+    messagingLimitTier?: string;
+    phoneStatus?: string;
+    businessVerificationStatus?: string;
+    accountReviewStatus?: string;
+    billingStatus?: string;
+    provisioningError?: string;
+    tokenExpiresAt?: string;
+    lastSyncedAt?: string;
     createdAt: string;
   }
 
@@ -425,28 +438,77 @@ const DashboardLayout = () => {
             ) : clientError ? (
               <p className="text-sm text-red-600 py-2">{clientError}</p>
             ) : clientData ? (
-              <div className="grid grid-cols-2 gap-x-6 gap-y-3 text-sm">
-                <div>
-                  <p className="text-gray-400 text-xs font-medium uppercase tracking-wider mb-0.5">Name</p>
-                  <p className="text-gray-900">{clientData.name}</p>
+              <div className="space-y-4">
+                {/* Connection */}
+                <div className="grid grid-cols-2 gap-x-6 gap-y-3 text-sm">
+                  <ProfileField label="Name" value={clientData.name} />
+                  <ProfileField label="Business Name" value={clientData.businessName} />
+                  <ProfileField label="WABA ID" value={clientData.wabaId} mono />
+                  <ProfileField label="Phone Number ID" value={clientData.phoneNumberId} mono />
+                  <ProfileField label="Verified Name" value={clientData.verifiedName} />
+                  <ProfileField label="Language" value={clientData.language} />
                 </div>
-                <div>
-                  <p className="text-gray-400 text-xs font-medium uppercase tracking-wider mb-0.5">ID</p>
-                  <p className="text-gray-900 font-mono text-xs">{clientData.id}</p>
+
+                {/* Health & Status */}
+                <div className="border-t border-gray-100 pt-3">
+                  <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Health & Status</p>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="flex items-center justify-between bg-gray-50 rounded-lg px-3 py-2">
+                      <span className="text-xs text-gray-500">Onboarding</span>
+                      <Badge variant={clientData.onboardingStatus === 'READY' ? 'success' : clientData.onboardingStatus === 'FAILED' ? 'danger' : 'warning'} size="sm" dot>
+                        {clientData.onboardingStatus || 'N/A'}
+                      </Badge>
+                    </div>
+                    <div className="flex items-center justify-between bg-gray-50 rounded-lg px-3 py-2">
+                      <span className="text-xs text-gray-500">Quality</span>
+                      <Badge variant={clientData.qualityRating === 'GREEN' ? 'success' : clientData.qualityRating === 'YELLOW' ? 'warning' : clientData.qualityRating === 'RED' ? 'danger' : 'default'} size="sm">
+                        {clientData.qualityRating || '--'}
+                      </Badge>
+                    </div>
+                    <div className="flex items-center justify-between bg-gray-50 rounded-lg px-3 py-2">
+                      <span className="text-xs text-gray-500">Msg Limit</span>
+                      <span className="text-xs font-semibold text-gray-700">{clientData.messagingLimitTier || '--'}</span>
+                    </div>
+                    <div className="flex items-center justify-between bg-gray-50 rounded-lg px-3 py-2">
+                      <span className="text-xs text-gray-500">Phone</span>
+                      <span className={cn('text-xs font-semibold', clientData.phoneStatus === 'CONNECTED' ? 'text-emerald-600' : clientData.phoneStatus === 'FLAGGED' ? 'text-red-600' : 'text-gray-700')}>
+                        {clientData.phoneStatus || '--'}
+                      </span>
+                    </div>
+                  </div>
                 </div>
-                <div>
-                  <p className="text-gray-400 text-xs font-medium uppercase tracking-wider mb-0.5">Phone Number ID</p>
-                  <p className="text-gray-900 font-mono text-xs">{clientData.phoneNumberId}</p>
+
+                {/* Verification & Billing */}
+                <div className="border-t border-gray-100 pt-3">
+                  <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Verification & Billing</p>
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-gray-500">Business Verification</span>
+                      <Badge variant={clientData.businessVerificationStatus === 'verified' ? 'success' : clientData.businessVerificationStatus === 'rejected' ? 'danger' : 'warning'} size="sm">
+                        {clientData.businessVerificationStatus || 'Not Verified'}
+                      </Badge>
+                    </div>
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-gray-500">Account Review</span>
+                      <span className="text-sm text-gray-700">{clientData.accountReviewStatus || '--'}</span>
+                    </div>
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-gray-500">Billing</span>
+                      <Badge variant={clientData.billingStatus === 'ATTACHED' ? 'success' : clientData.billingStatus === 'FAILED' ? 'danger' : 'default'} size="sm">
+                        {clientData.billingStatus || 'Not Set'}
+                      </Badge>
+                    </div>
+                  </div>
                 </div>
-                <div>
-                  <p className="text-gray-400 text-xs font-medium uppercase tracking-wider mb-0.5">WABA ID</p>
-                  <p className="text-gray-900 font-mono text-xs">{clientData.wabaId}</p>
-                </div>
-                <div className="col-span-2">
-                  <p className="text-gray-400 text-xs font-medium uppercase tracking-wider mb-0.5">Created</p>
-                  <p className="text-gray-900">
-                    {clientData.createdAt ? new Date(clientData.createdAt).toLocaleString() : 'N/A'}
-                  </p>
+
+                {/* Timeline */}
+                <div className="border-t border-gray-100 pt-3">
+                  <div className="grid grid-cols-2 gap-x-6 gap-y-2 text-sm">
+                    <ProfileField label="Created" value={clientData.createdAt ? new Date(clientData.createdAt).toLocaleString() : 'N/A'} />
+                    <ProfileField label="Last Synced" value={clientData.lastSyncedAt ? new Date(clientData.lastSyncedAt).toLocaleString() : '--'} />
+                    <ProfileField label="Token Expires" value={clientData.tokenExpiresAt ? new Date(clientData.tokenExpiresAt).toLocaleDateString() : '--'} />
+                    <ProfileField label="Client ID" value={clientData.id} mono />
+                  </div>
                 </div>
               </div>
             ) : (
@@ -458,5 +520,12 @@ const DashboardLayout = () => {
     </div>
   );
 };
+
+const ProfileField = ({ label, value, mono }: { label: string; value?: string; mono?: boolean }) => (
+  <div>
+    <p className="text-gray-400 text-xs font-medium uppercase tracking-wider mb-0.5">{label}</p>
+    <p className={cn('text-gray-900', mono && 'font-mono text-xs')}>{value || '--'}</p>
+  </div>
+);
 
 export default DashboardLayout;
