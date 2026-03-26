@@ -39,3 +39,13 @@ export const getClientAlerts = async (clientId: string): Promise<AccountAlert[]>
   const response = await api.get<AccountAlert[]>(`/admin/clients/${clientId}/alerts`);
   return response.data;
 };
+
+export const refreshClientData = async (clientId: string): Promise<ClientDetail> => {
+  const response = await api.post<ClientDetail>(`/admin/clients/${clientId}/refresh`);
+  return response.data;
+};
+
+export const retryClientProvisioning = async (clientId: string): Promise<ClientDetail> => {
+  const response = await api.post<ClientDetail>(`/admin/clients/${clientId}/retry-provisioning`);
+  return response.data;
+};
