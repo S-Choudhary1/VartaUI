@@ -615,5 +615,4 @@ export interface FlowAnalytics {
   waiting: number;
   failed: number;
   timedOut: number;
-  contactsPerNode: Record<string, number>;
 }

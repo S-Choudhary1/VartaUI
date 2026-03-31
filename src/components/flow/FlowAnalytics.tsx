@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { BarChart2, Users, CheckCircle, Clock, AlertCircle, XCircle } from 'lucide-react';
 import { getFlowAnalytics } from '../../services/flowService';
 import type { FlowAnalytics as FlowAnalyticsType } from '../../types';
-import { Card, CardContent, CardHeader, CardTitle } from '../ui/Card';
+import { Card, CardContent } from '../ui/Card';
 
 interface FlowAnalyticsProps {
   flowId: string;
@@ -53,54 +53,23 @@ const FlowAnalyticsView = ({ flowId }: FlowAnalyticsProps) => {
     { label: 'Timed Out', value: analytics.timedOut, icon: AlertCircle, color: 'text-orange-700 bg-orange-50' },
   ];
 
-  const nodeEntries = Object.entries(analytics.contactsPerNode || {});
-  const maxCount = Math.max(...nodeEntries.map(([, c]) => c), 1);
-
   return (
-    <div className="space-y-6">
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-        {stats.map(({ label, value, icon: Icon, color }) => (
-          <Card key={label}>
-            <CardContent className="p-4">
-              <div className="flex items-center gap-3">
-                <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${color}`}>
-                  <Icon className="w-5 h-5" />
-                </div>
-                <div>
-                  <div className="text-2xl font-bold text-gray-900">{value}</div>
-                  <div className="text-xs text-gray-500">{label}</div>
-                </div>
+    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+      {stats.map(({ label, value, icon: Icon, color }) => (
+        <Card key={label}>
+          <CardContent className="p-4">
+            <div className="flex items-center gap-3">
+              <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${color}`}>
+                <Icon className="w-5 h-5" />
               </div>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
-
-      {nodeEntries.length > 0 && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Contacts per Node</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-3">
-              {nodeEntries.map(([nodeId, count]) => (
-                <div key={nodeId} className="flex items-center gap-3">
-                  <div className="w-32 text-xs text-gray-600 truncate font-mono">{nodeId}</div>
-                  <div className="flex-1">
-                    <div className="h-6 bg-gray-100 rounded-full overflow-hidden">
-                      <div
-                        className="h-full bg-whatsapp-teal/70 rounded-full transition-all duration-500"
-                        style={{ width: `${(count / maxCount) * 100}%` }}
-                      />
-                    </div>
-                  </div>
-                  <div className="text-sm font-medium text-gray-700 w-10 text-right">{count}</div>
-                </div>
-              ))}
+              <div>
+                <div className="text-2xl font-bold text-gray-900">{value}</div>
+                <div className="text-xs text-gray-500">{label}</div>
+              </div>
             </div>
           </CardContent>
         </Card>
-      )}
+      ))}
     </div>
   );
 };
