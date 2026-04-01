@@ -49,3 +49,8 @@ export const retryClientProvisioning = async (clientId: string): Promise<ClientD
   const response = await api.post<ClientDetail>(`/admin/clients/${clientId}/retry-provisioning`);
   return response.data;
 };
+
+export const toggleAiChatbot = async (clientId: string, enabled: boolean): Promise<ClientDetail> => {
+  const response = await api.patch<ClientDetail>(`/admin/clients/${clientId}/ai-chatbot`, { enabled });
+  return response.data;
+};

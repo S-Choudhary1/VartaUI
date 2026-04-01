@@ -2,11 +2,11 @@ import React, { useEffect, useState, useMemo } from 'react';
 import {
   Plus, Trash2, Eye, Building2, X, Wifi, Shield, CreditCard,
   AlertCircle, CheckCircle, Clock, RefreshCw, Bell, ChevronRight,
-  Activity, Phone, Zap, ExternalLink, Loader2, ArrowRight
+  Activity, Phone, Zap, ExternalLink, Loader2, ArrowRight, Bot
 } from 'lucide-react';
 import {
   getAllClients, createClient, deleteClient, getClientAlerts,
-  refreshClientData, retryClientProvisioning
+  refreshClientData, retryClientProvisioning, toggleAiChatbot
 } from '../../services/adminService';
 import type { ClientDetail, ClientCreateRequest, AccountAlert } from '../../types';
 import { Card } from '../../components/ui/Card';
@@ -66,6 +66,7 @@ const AdminClients = () => {
   const [alertsLoading, setAlertsLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [retryingProvision, setRetryingProvision] = useState(false);
+  const [togglingAi, setTogglingAi] = useState(false);
   const navigate = useNavigate();
 
   const fetchClients = async () => {
@@ -162,6 +163,21 @@ const AdminClients = () => {
       console.error('Retry provisioning failed', err);
     } finally {
       setRetryingProvision(false);
+    }
+  };
+
+  const handleToggleAiChatbot = async () => {
+    if (!selectedClient) return;
+    setTogglingAi(true);
+    try {
+      const newEnabled = !selectedClient.aiChatbotEnabled;
+      const updated = await toggleAiChatbot(selectedClient.id, newEnabled);
+      setSelectedClient(updated);
+      setClients(prev => prev.map(c => c.id === updated.id ? updated : c));
+    } catch (err) {
+      console.error('Toggle AI chatbot failed', err);
+    } finally {
+      setTogglingAi(false);
     }
   };
 
@@ -386,6 +402,38 @@ const AdminClients = () => {
                   <HealthCard icon={Clock} label="Token Expires"
                     value={selectedClient.tokenExpiresAt ? new Date(selectedClient.tokenExpiresAt).toLocaleDateString() : '--'}
                     color={selectedClient.tokenExpiresAt && new Date(selectedClient.tokenExpiresAt) < new Date(Date.now() + 7 * 86400000) ? 'text-red-600 bg-red-50' : 'text-gray-500 bg-gray-50'} />
+                </div>
+              </div>
+
+              {/* ─── AI Chatbot Access ─── */}
+              <div>
+                <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3 flex items-center gap-2">
+                  <Bot className="w-3.5 h-3.5" />AI Chatbot
+                </h3>
+                <div className="bg-gray-50 rounded-xl p-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-medium text-gray-900">AI Chatbot Access</p>
+                      <p className="text-xs text-gray-500 mt-0.5">
+                        {selectedClient.aiChatbotEnabled
+                          ? 'Client can configure and use the AI chatbot module'
+                          : 'Enable to give this client access to the AI chatbot feature'}
+                      </p>
+                    </div>
+                    <button
+                      onClick={handleToggleAiChatbot}
+                      disabled={togglingAi}
+                      className={cn(
+                        'relative inline-flex h-7 w-12 shrink-0 cursor-pointer items-center rounded-full transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-[#008069]/30 focus:ring-offset-2 disabled:opacity-50',
+                        selectedClient.aiChatbotEnabled ? 'bg-[#008069]' : 'bg-gray-300'
+                      )}
+                    >
+                      <span className={cn(
+                        'inline-block h-5 w-5 rounded-full bg-white shadow-sm transition-transform duration-200',
+                        selectedClient.aiChatbotEnabled ? 'translate-x-6' : 'translate-x-1'
+                      )} />
+                    </button>
+                  </div>
                 </div>
               </div>
 

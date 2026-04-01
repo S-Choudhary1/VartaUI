@@ -7,6 +7,7 @@ export interface User {
   username: string;
   role: string;
   clientId?: string;
+  aiChatbotEnabled?: boolean;
 }
 
 export interface AuthResponse {
@@ -432,6 +433,7 @@ export interface ClientDetail {
   accountReviewStatus?: string;
   billingStatus?: string;
   provisioningError?: string;
+  aiChatbotEnabled?: boolean;
   tokenExpiresAt?: string;
   lastSyncedAt?: string;
   createdAt: string;
@@ -615,4 +617,94 @@ export interface FlowAnalytics {
   waiting: number;
   failed: number;
   timedOut: number;
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  AI CHATBOT
+// ═══════════════════════════════════════════════════════════════
+
+export type AiProvider = 'ANTHROPIC' | 'OPENAI' | 'GOOGLE';
+
+export interface AiChatbotConfig {
+  id?: string;
+  name: string;
+  enabled: boolean;
+  provider: AiProvider;
+  model: string;
+  hasApiKey?: boolean;
+  apiKey?: string; // only sent when saving, never returned
+  systemPrompt: string;
+  maxTokens: number;
+  temperature: number;
+  fallbackMessage: string;
+  humanHandoffEnabled: boolean;
+  humanHandoffKeyword: string;
+  maxConversationTurns: number;
+  conversationTimeoutHours: number;
+  maxMessagesPerDayPerContact: number;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface AiConversation {
+  id: string;
+  contactPhone: string;
+  status: string;
+  totalMessages: number;
+  totalTokensUsed: number;
+  estimatedCostUsd: number;
+  startedAt: string;
+  lastMessageAt: string;
+  endedAt?: string;
+}
+
+export interface AiMessageLog {
+  id: string;
+  direction: 'INBOUND' | 'OUTBOUND';
+  messageType: string;
+  content: string;
+  tokensInput: number;
+  tokensOutput: number;
+  modelUsed: string;
+  latencyMs: number;
+  createdAt: string;
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  MCP SERVERS
+// ═══════════════════════════════════════════════════════════════
+
+export interface McpServerRegistry {
+  id: string;
+  name: string;
+  slug: string;
+  description: string;
+  iconUrl?: string;
+  mcpUrl: string;
+  authType: 'oauth2' | 'api_key' | 'bearer_token' | 'none';
+  authConfig: string;
+  capabilities: string;
+  category: string;
+  requiredFields: string;
+  active: boolean;
+  premium: boolean;
+  createdAt: string;
+}
+
+export interface McpConnection {
+  id: string;
+  clientId: string;
+  mcpServer: McpServerRegistry;
+  config: string;
+  status: 'pending' | 'connected' | 'error' | 'expired';
+  lastHealthCheck?: string;
+  errorMessage?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface McpRequiredField {
+  key: string;
+  label: string;
+  type: 'text' | 'password';
 }
