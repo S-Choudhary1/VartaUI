@@ -10,6 +10,7 @@ import Campaigns from './pages/Campaigns';
 import QuickSend from './pages/QuickSend';
 import Flows from './pages/Flows';
 import FlowBuilder from './pages/FlowBuilder';
+import AIChatbot from './pages/AIChatbot';
 import Settings from './pages/Settings';
 import AdminDashboard from './pages/admin/AdminDashboard';
 import AdminClients from './pages/admin/AdminClients';
@@ -89,6 +90,7 @@ function App() {
             <Route path="/flows/new" element={<FlowBuilder />} />
             <Route path="/flows/:id" element={<FlowBuilder />} />
             <Route path="/flows/:id/analytics" element={<FlowBuilder />} />
+            <Route path="/chatbot" element={<AIChatbot />} />
             <Route path="/settings" element={<Settings />} />
             <Route path="/admin" element={
               <SuperAdminRoute>
